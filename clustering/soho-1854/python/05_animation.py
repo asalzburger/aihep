@@ -32,7 +32,7 @@ import cairosvg
 import numpy as np
 from PIL import Image, ImageDraw
 
-from svg_utils import load_dots, _base_map_paths, WIDTH, HEIGHT
+from svg_utils import load_dots, _base_map_paths, WIDTH, HEIGHT, BASE_MAP_PATH
 
 FRAME_DIR = "/tmp/soho_animation_frames"
 FPS = 24
@@ -53,7 +53,7 @@ random.seed(42)
 
 def build_clean_base_svg():
     """Base map, no dots, white background - same look as base_map.svg."""
-    paths = _base_map_paths("base_map.svg")
+    paths = _base_map_paths(BASE_MAP_PATH)
     return (
         f'<?xml version="1.0" encoding="UTF-8"?>\n'
         f'<svg version="1.1" xmlns="http://www.w3.org/2000/svg" '

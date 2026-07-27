@@ -6,9 +6,12 @@ Soho base map, and for loading the extracted dot coordinates.
 import csv
 import re
 
+import numpy as np
+
 WIDTH, HEIGHT = 4417, 4201
-BASE_MAP_PATH = "base_map.svg"
-DOTS_CSV = "dots.csv"
+BASE_MAP_PATH = "../resources/Soho_map_raw.svg"
+DOTS_CSV = "../resources/dots.csv"
+GAUGE_CSV = "../resources/gauge.csv"
 
 # Distinct, colorblind-friendlyish palette for up to 5 clusters.
 PALETTE = [
@@ -31,6 +34,36 @@ def load_dots(csv_path: str = DOTS_CSV):
         for row in reader:
             pts.append((float(row["x"]), float(row["y"])))
     return pts
+
+
+def make_svg_to_latlon(gauge_csv: str = GAUGE_CSV):
+    """
+    Fit an affine map (x, y) -> (lat, long) from the 3 reference points in
+    gauge.csv, and return a function performing that conversion.
+
+    Three points fully determine a 2D affine transform (6 DOF), which also
+    absorbs the small rotation between the map's pixel axes and true
+    north/east - a simple axis-aligned scale would not.
+    """
+    xs, ys, lats, longs = [], [], [], []
+    with open(gauge_csv) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            xs.append(float(row["x"]))
+            ys.append(float(row["y"]))
+            lats.append(float(row["lat"]))
+            longs.append(float(row["long"]))
+
+    A = np.array([[x, y, 1.0] for x, y in zip(xs, ys)])
+    coeff_lat = np.linalg.solve(A, np.array(lats))
+    coeff_long = np.linalg.solve(A, np.array(longs))
+
+    def svg_to_latlon(x: float, y: float):
+        lat = coeff_lat[0] * x + coeff_lat[1] * y + coeff_lat[2]
+        long_ = coeff_long[0] * x + coeff_long[1] * y + coeff_long[2]
+        return lat, long_
+
+    return svg_to_latlon
 
 
 def _base_map_paths(base_map_path: str = BASE_MAP_PATH) -> str:

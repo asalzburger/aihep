@@ -10,8 +10,8 @@ Output: dots.csv - one row per dot, with its center (x, y) in SVG user units
 import re
 import csv
 
-SVG_PATH = "overlay.svg"
-OUT_CSV = "dots.csv"
+SVG_PATH = "../resources/Soho_map_annoted.svg"
+OUT_CSV = "../resources/dots.csv"
 RED_FILL = "#e8000d"
 
 
