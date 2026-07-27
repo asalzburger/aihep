@@ -1,0 +1,32 @@
+# Default configuration for clustering_hep. Any key omitted here falls back
+# to the dataclass default in clustering_hep/sim/config.py.
+
+detector:
+  thickness_um: 150.0       # silicon slab thickness
+  pitch_x_um: 25.0           # pixel pitch in x
+  pitch_y_um: 50.0           # pixel pitch in y
+  n_pixels_x: 200             # simulation area, in pixels
+  n_pixels_y: 200
+  lorentz_slope: 0.0            # constant Lorentz drift (dx/dz-equivalent); 0 = no drift
+
+particle:
+  angle_spread: 0.3           # uniform: max |dxdz|,|dydz|; gauss: sigma, around nominal
+  angle_distribution: uniform  # "uniform" or "gauss"
+  nominal_dxdz: 0.0
+  nominal_dydz: 0.0
+  charge_per_um: 0.006666666666666667  # 1/150: perpendicular track deposits charge = 1.0
+
+multi:
+  n_particles: 1               # only consulted when > 1
+  opening_angle_x: 0.05
+  opening_angle_y: 0.05
+  opening_distribution: uniform  # "uniform", "gauss", or "exponential"
+
+digitization:
+  diffusion_sigma_um: 0.0    # 0 disables Gaussian blur of the charge grid
+  noise_sigma: 0.0             # 0 disables per-pixel additive noise
+  threshold: 0.0                 # pixels with charge <= threshold are not hits
+
+n_events: 1
+seed: null
+cluster_connectivity: 8   # 4 or 8 neighbor connectivity for cluster finding
