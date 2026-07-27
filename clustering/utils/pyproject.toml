@@ -1,0 +1,13 @@
+[project]
+name = "clustering-utils"
+version = "0.1.0"
+description = "Shared CSV/Apache Arrow table IO for the clustering/ packages (sensor, tracker)"
+requires-python = ">=3.10"
+dependencies = ["pandas", "pyarrow"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["clustering_utils"]

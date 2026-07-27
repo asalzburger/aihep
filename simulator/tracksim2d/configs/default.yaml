@@ -1,0 +1,33 @@
+# Default configuration for tracksim2d. Any key omitted here falls back to
+# the dataclass default in tracksim2d/config.py.
+#
+# A small toy detector: 5 vertical line layers spaced 20 units apart, plus
+# one circular (barrel) layer around the vertex, all with a 1.0-unit
+# digitization pitch (consumed by clustering/tracker, not here).
+
+layers:
+  - {kind: line, layer_id: 0, p1: [10.0, -50.0], p2: [10.0, 50.0], pitch: 1.0}
+  - {kind: line, layer_id: 1, p1: [30.0, -50.0], p2: [30.0, 50.0], pitch: 1.0}
+  - {kind: line, layer_id: 2, p1: [50.0, -50.0], p2: [50.0, 50.0], pitch: 1.0}
+  - {kind: line, layer_id: 3, p1: [70.0, -50.0], p2: [70.0, 50.0], pitch: 1.0}
+  - {kind: line, layer_id: 4, p1: [90.0, -50.0], p2: [90.0, 50.0], pitch: 1.0}
+  - {kind: circle, layer_id: 5, center: [0.0, 0.0], radius: 5.0, pitch: 0.5}
+
+field:
+  bz: 1.0          # constant field out of the 2D plane
+  k: 0.2998        # R[len] = pt / (k * |q| * bz)
+
+gun:
+  n_particles: 3
+  vertex_x: 0.0
+  vertex_y: 0.0
+  vertex_spread_x: 0.0
+  vertex_spread_y: 2.0
+  phi_min: -0.3
+  phi_max: 0.3
+  charges: [-1.0, 1.0]
+  pt_min: 50.0   # radius = pt / (k * |q| * bz) ~ 167-500, well beyond the 90-unit layer span below
+  pt_max: 150.0
+
+n_events: 1
+seed: null

@@ -1,0 +1,16 @@
+[project]
+name = "tracksim2d"
+version = "0.1.0"
+description = "2D particle event generation, CSV/Arrow IO, and visualization on top of detector2d"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "pyarrow", "pyyaml", "matplotlib"]
+# detector2d is a sibling path package (not on PyPI); install it explicitly,
+# see README.md -- listing it here would make `pip install .` try to fetch
+# it from PyPI and fail.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["tracksim2d"]
