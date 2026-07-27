@@ -122,17 +122,44 @@ harmonized layer y-positions being slightly different from the original's.
 solid) tracks trace almost exactly over the original (light blue, dashed)
 ones.
 
+## Reproducing the neural network itself (fig. 8, and fig. 9)
+
+Everything above reproduces the paper's fig. 8(a) *geometrically* --
+drawing the tracks the network eventually converges to. It turns out that's
+exactly what it is: `denby_detector_event.svg`'s "Energy -1158.3411 /
+Iteration 6 / T=3.0tau" annotation matches fig. 8(a)'s own last frame
+exactly. [`hopfield_tracking`](../hopfield_tracking) is the natural next
+step -- a from-scratch reimplementation of the paper's actual Hopfield
+network (section 8), so instead of drawing the known answer we start from
+a random state and watch the network relax into it. Three driver scripts
+here wire that package to this event and to fresh simulated ones:
+
+| script | does |
+|---|---|
+| `python/run_hopfield_on_denby_event.py` | Runs `hopfield_tracking` on this page's own 4-track event; reliably reconstructs 2 of the 4 tracks exactly and the other 2 along their outer ~8 of 13 hits, with confusion in their innermost hits near the shared vertex -- see `hopfield_tracking/README.md` for why, and for the two real dynamical-stability findings that were needed to get this far at all. Writes `resources/denby_hopfield_hits.csv` and `resources/denby_hopfield_fig8.png`. |
+| `python/generate_random_events.py` | Reuses `tracksim2d`'s existing particle-gun simulation + this page's harmonized detector/vertex to generate a batch of synthetic 1-6-track events ("simulated events with from 1 to 6 tracks", per the paper) -- task item 4's "detector parameter and random simulation" dataset. Writes `resources/denby_random_events.csv`. |
+| `python/run_hopfield_sweep.py` | Runs the network on every generated event and reports perfect-reconstruction rate by multiplicity: the paper's qualitative fig. 8(a)-vs-8(b) contrast, quantified and swept systematically. Writes `resources/denby_sweep_results.csv`. |
+
+Figure 9 (the paper's separate, much simpler, non-Hopfield "contiguity
+trigger") gets a small illustrative reproduction at
+`hopfield_tracking/examples/contiguity_mask_demo.py`.
+
 ## Running it
 
 ```bash
 cd tracking/denby
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -r requirements.txt
 
 cd python
 ../.venv/bin/python harmonize_detector.py
 ../.venv/bin/python fit_event.py
 ../.venv/bin/python render_event.py
+
+# the Hopfield network itself (see the table above)
+../.venv/bin/python run_hopfield_on_denby_event.py
+../.venv/bin/python generate_random_events.py
+../.venv/bin/python run_hopfield_sweep.py
 ```
 
 ## Tests

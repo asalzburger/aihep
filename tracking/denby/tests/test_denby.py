@@ -111,3 +111,32 @@ def test_generated_resources_exist_and_look_like_svg():
         assert path.exists(), f"missing {path} -- run harmonize_detector.py / fit_event.py / render_event.py"
         if name.endswith(".svg"):
             assert path.read_text().startswith("<?xml")
+
+
+def test_hopfield_tracking_reconstructs_most_of_the_real_event():
+    """Integration check that the separate hopfield_tracking package
+    actually converges to a sensible reconstruction of this page's own
+    event -- not just that the driver script ran once and left files
+    behind. See hopfield_tracking/README.md for the full, honest story
+    (2 of 4 tracks exact, the other 2 mostly right, confusion right at the
+    shared vertex)."""
+    from hopfield_tracking.cli import run as hopfield_run
+
+    from tracksim2d.simulate import hits_for_particles
+
+    layers = harmonized_layers()
+    particles = fit_event()
+    hits = hits_for_particles(particles, layers)[["particle_id", "layer_id", "x", "y"]]
+
+    _, history, _, score = hopfield_run(hits, seed=3)
+    assert len(history) > 1
+    assert score["n_true_tracks"] == 4
+    assert score["n_exact_matches"] >= 2
+
+
+def test_hopfield_driver_resources_exist():
+    for name in ("denby_hopfield_hits.csv", "denby_hopfield_fig8.png", "denby_random_events.csv", "denby_sweep_results.csv"):
+        path = RESOURCES / name
+        assert path.exists(), (
+            f"missing {path} -- run run_hopfield_on_denby_event.py / generate_random_events.py / run_hopfield_sweep.py"
+        )
