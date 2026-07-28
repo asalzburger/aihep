@@ -82,6 +82,29 @@ def test_multi_particle_event_produces_multiple_truth_rows():
     assert sorted(contributions["particle_id"].unique()) == list(range(5))
 
 
+def test_n_particles_fixed_mode_is_always_exact():
+    config = _base_config(**{"multi.n_particles": 4})
+    config.multi.n_particles_mode = "fixed"
+    config.n_events = 20
+    _, _, truth, _ = run_simulation(config)
+
+    assert (truth.groupby("event_id").size() == 4).all()
+
+
+def test_n_particles_uniform_mode_stays_within_range_and_varies():
+    config = _base_config()
+    config.multi.n_particles_mode = "uniform"
+    config.multi.n_particles_min = 1
+    config.multi.n_particles = 3
+    config.n_events = 200
+    _, _, truth, _ = run_simulation(config)
+
+    counts = truth.groupby("event_id").size()
+    assert counts.min() >= 1
+    assert counts.max() <= 3
+    assert counts.nunique() > 1  # varies across events, not accidentally constant
+
+
 @pytest.mark.parametrize("fmt", ["csv", "arrow"])
 def test_write_read_round_trip(tmp_path, fmt):
     config = _base_config()

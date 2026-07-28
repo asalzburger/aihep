@@ -34,7 +34,9 @@ class ParticleConfig:
 
 @dataclass
 class MultiParticleConfig:
-    n_particles: int = 1
+    n_particles: int = 1  # fixed count ("fixed" mode), or the range's upper bound ("uniform" mode)
+    n_particles_mode: Literal["fixed", "uniform"] = "fixed"
+    n_particles_min: int = 1  # range lower bound (inclusive) when n_particles_mode == "uniform"; unused otherwise
     opening_angle_x: float = 0.05
     opening_angle_y: float = 0.05
     opening_distribution: Literal["uniform", "gauss", "exponential"] = "uniform"

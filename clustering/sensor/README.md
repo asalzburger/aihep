@@ -272,7 +272,9 @@ particle:
   charge_per_um: 0.006666666666666667  # 1/150: perpendicular track deposits charge = 1.0
 
 multi:
-  n_particles: 1               # only consulted when > 1
+  n_particles: 1               # fixed count, or the range's upper bound in "uniform" mode
+  n_particles_mode: fixed      # "fixed" (always n_particles) or "uniform" (n_particles_min..n_particles, inclusive)
+  n_particles_min: 1           # range lower bound; only used when n_particles_mode is "uniform"
   opening_angle_x: 0.05
   opening_angle_y: 0.05
   opening_distribution: uniform  # "uniform", "gauss", or "exponential"
@@ -296,14 +298,20 @@ Notes on how these interact:
   the incident angle. `lorentz_slope=0` is a plain straight-line track.
 - **Incident angle**: each event first draws one nominal `(dxdz, dydz)` from
   `particle.angle_spread`/`angle_distribution` (uniform ±spread, or Gaussian
-  around `nominal_dxdz`/`nominal_dydz`). With `n_particles == 1` that's the
+  around `nominal_dxdz`/`nominal_dydz`). With one particle that's the
   particle's direction.
-- **Multi-particle events**: when `multi.n_particles > 1`, every particle in
-  the event shares the same vertex and starts from the same nominal
-  direction above, then gets its own offset drawn from
+- **Particle multiplicity**: `n_particles_mode` picks how many particles an
+  event gets, drawn fresh per event: `fixed` always uses `n_particles`
+  exactly (e.g. `n_particles: 3` → always 3, the previous/only behavior);
+  `uniform` draws a whole number uniformly from `n_particles_min` to
+  `n_particles` inclusive (e.g. `n_particles_min: 1`, `n_particles: 3` →
+  1, 2, or 3 with equal probability — see `configs/p_uniform.yaml`).
+- **Multi-particle events**: whenever an event gets more than one particle,
+  every particle in it shares the same vertex and starts from the same
+  nominal direction above, then gets its own offset drawn from
   `multi.opening_angle_x/y` and `opening_distribution` (uniform, Gaussian,
   or exponential) — simulating a small shower/jet of particles from one
-  point rather than `n_particles` unrelated single-particle events.
+  point rather than unrelated single-particle events.
 - **Digitization** (diffusion/noise/threshold) is off by default, giving a
   purely geometric, deterministic charge pattern. Turn on `diffusion_sigma_um`
   and/or `noise_sigma` for a more realistic (stochastic) detector response.
