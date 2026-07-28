@@ -89,6 +89,7 @@ def plot_event(
     event_hits = hits[hits["event_id"] == event_id]
     event_hits = event_hits[event_hits["charge"] > readout_threshold]
     event_clusters = clusters[clusters["event_id"] == event_id]
+    event_clusters = event_clusters[event_clusters["cluster_id"].isin(event_hits["cluster_id"])]
     event_truth = truth[truth["event_id"] == event_id]
 
     charge_grid = np.zeros((detector.n_pixels_x, detector.n_pixels_y))

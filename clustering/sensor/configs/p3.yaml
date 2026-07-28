@@ -19,7 +19,9 @@ particle:
   charge_per_um: 0.006666666666666667  # 1/150: perpendicular track deposits charge = 1.0
 
 multi:
-  n_particles: 3               # only consulted when > 1
+  n_particles: 3               # fixed count, or the range's upper bound in "uniform" mode
+  n_particles_mode: fixed      # "fixed" (always n_particles) or "uniform" (n_particles_min..n_particles, inclusive)
+  n_particles_min: 1           # range lower bound; only used when n_particles_mode is "uniform"
   opening_angle_x: 0.5
   opening_angle_y: 0.5
   opening_distribution: uniform  # "uniform", "gauss", or "exponential"

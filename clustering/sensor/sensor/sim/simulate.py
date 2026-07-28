@@ -48,6 +48,14 @@ def _sample_vertex(rng: np.random.Generator, config: SimConfig) -> tuple[float, 
     return x0, y0
 
 
+def _sample_n_particles(rng: np.random.Generator, multi: MultiParticleConfig) -> int:
+    if multi.n_particles_mode == "fixed":
+        return multi.n_particles
+    if multi.n_particles_mode == "uniform":
+        return int(rng.integers(multi.n_particles_min, multi.n_particles + 1))
+    raise ValueError(f"Unknown n_particles_mode: {multi.n_particles_mode!r}")
+
+
 def simulate_event(
     rng: np.random.Generator, config: SimConfig, event_id: int
 ) -> tuple[np.ndarray, list[dict], list[dict]]:
@@ -59,13 +67,14 @@ def simulate_event(
     detector, particle, multi = config.detector, config.particle, config.multi
     grid = np.zeros((detector.n_pixels_x, detector.n_pixels_y), dtype=float)
 
+    n_particles = _sample_n_particles(rng, multi)
     x0, y0 = _sample_vertex(rng, config)
     dxdz_nom, dydz_nom = _sample_direction(rng, particle)
 
     truth_rows = []
     contribution_rows = []
-    for particle_id in range(multi.n_particles):
-        off_x, off_y = _sample_opening_offset(rng, multi) if multi.n_particles > 1 else (0.0, 0.0)
+    for particle_id in range(n_particles):
+        off_x, off_y = _sample_opening_offset(rng, multi) if n_particles > 1 else (0.0, 0.0)
         dxdz, dydz = dxdz_nom + off_x, dydz_nom + off_y
 
         p0, p1 = charge_endpoints(x0, y0, dxdz, dydz, detector.thickness_um, detector.lorentz_slope)
