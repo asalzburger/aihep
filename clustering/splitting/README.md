@@ -50,14 +50,24 @@ installed explicitly rather than listed in `requirements.txt`.)
 ```
 
 Reads `hits`/`clusters`/`truth`/`contributions` from `--input-dir` (any
-`sensor`-shaped run directory -- `resources/p123` is a checked-in fixture:
-clusters from 1-, 2-, and 3-particle events, generated via
-`configs/p123.yaml` in `sensor`) and writes a complete new run directory:
+`sensor`-shaped run directory) and writes a complete new run directory:
 `hits`/`clusters` reflect the split, `truth`/`contributions` are copied
 through unchanged (splitting never touches ground truth). Because the
 output has exactly `sensor`'s schema, `sensor.cli visualize`/`analyse` (or
 `sensor.vis.plot_event` with `--zoom`) work on it unchanged -- handy for
 eyeballing what a splitter actually did to a specific event.
+
+`resources/p123` above isn't checked in -- it's generated on demand:
+clusters from 1-, 2-, and 3-particle events, produced via
+`configs/p123.yaml` in `sensor`. `pytest -m p123_resources` (re)creates it
+before running the tests that need it (see Tests below); to create it
+yourself for the command above, from `clustering/sensor`:
+
+```bash
+.venv/bin/python -m sensor.cli run \
+  --config configs/p123.yaml --n-events 1000 --seed 123 \
+  --output-dir ../splitting/resources/p123 --format arrow
+```
 
 `--splitter` selects from `splitting.registry.SPLITTERS` (currently just
 `truth`); `--format` is `csv` or `arrow`.
@@ -122,7 +132,8 @@ events) to 933 -- a real improvement, not a complete fix. See
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest tests/
+.venv/bin/python -m pytest tests/                    # everything, incl. regenerating resources/p123
+.venv/bin/python -m pytest tests/ -m "not p123_resources"  # skip the ones that need sensor's venv
 ```
 
 - `test_pipeline.py` -- the generic renumbering/aggregation machinery
@@ -133,7 +144,12 @@ events) to 933 -- a real improvement, not a complete fix. See
   scenarios: picks the larger contributor per pixel, cleanly separates a
   cluster shared by two particles plus a glued-on noise pixel, and the
   no-contribution sentinel.
-- `test_resources_p123.py` -- integration test against the real
-  `resources/p123` fixture: hits/charge are conserved, cluster count never
+- `test_resources_p123.py` -- integration test against real (not
+  hand-built) data: hits/charge are conserved, cluster count never
   decreases, and purity improves substantially without claiming perfection
-  (see above).
+  (see above). Tagged `@pytest.mark.p123_resources`: the `p123_resources`
+  fixture in `conftest.py` (re)generates `resources/p123` by shelling out
+  to `sensor.cli run --config configs/p123.yaml` once per test session
+  before these run, so they're never skipped for a missing/stale
+  directory -- only if `sensor`'s own venv isn't set up, in which case the
+  fixture itself skips with a clear reason.

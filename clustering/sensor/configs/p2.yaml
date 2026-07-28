@@ -1,7 +1,7 @@
 # Default configuration for sensor. Any key omitted here falls back
 # to the dataclass default in sensor/sim/config.py.
 #
-# This is for 1 particle per event
+# This is for 2 particles per event
 
 detector:
   thickness_um: 150.0       # silicon slab thickness
@@ -19,7 +19,7 @@ particle:
   charge_per_um: 0.006666666666666667  # 1/150: perpendicular track deposits charge = 1.0
 
 multi:
-  n_particles: 3               # fixed count, or the range's upper bound in "uniform" mode
+  n_particles: 2               # fixed count, or the range's upper bound in "uniform" mode
   n_particles_mode: fixed      # "fixed" (always n_particles) or "uniform" (n_particles_min..n_particles, inclusive)
   n_particles_min: 1           # range lower bound; only used when n_particles_mode is "uniform"
   opening_angle_x: 0.5
