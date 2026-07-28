@@ -15,7 +15,8 @@ import pandas as pd
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch, Rectangle
 
-from .sim import DetectorConfig, charge_endpoints
+from .analysis import CENTROID_COLUMNS, compute_residuals
+from .sim import DetectorConfig, charge_endpoints, true_center_position
 
 CLUSTER_COLOR = "#DA4C4C"
 TRUTH_COLOR = "#2E86DE"
@@ -23,6 +24,14 @@ CHARGE_CMAP = "YlOrRd"  # sequential: low charge yellow -> high charge red
 DIGITAL_ON_COLOR = "#C0392B"
 GRID_COLOR = "0.85"
 DEFAULT_READOUT_THRESHOLD = 0.15  # pixels with charge <= this are not "read out"
+
+# Centroid-type identity, shared between the per-event overlay (plot_event)
+# and the residual/summary plots: charge-weighted reuses the existing
+# cluster-box red, digital gets its own hue so the two never collide.
+CENTROID_TYPE_COLOR = {"charge": CLUSTER_COLOR, "digital": "#E67E22"}
+CENTROID_TYPE_LABEL = {"charge": "charge-weighted", "digital": "digital"}
+CENTROID_TYPE_MARKER = {"charge": "D", "digital": "s"}
+TRUE_POSITION_MARKER = "*"
 
 
 def _clip_window(center: int, size: int, n_max: int) -> tuple[int, int]:
@@ -60,6 +69,7 @@ def plot_event(
     grid: bool = False,
     readout_threshold: float = DEFAULT_READOUT_THRESHOLD,
     digital: bool = False,
+    centroid_types: tuple[str, ...] = ("charge",),
 ):
     """Plot one event's pixel grid, cluster boxes, and truth tracks.
 
@@ -71,6 +81,10 @@ def plot_event(
         mimicking a real front-end's readout threshold.
     digital: if True, show surviving pixels as flat on/off instead of
         charge-graded color.
+    centroid_types: which reconstructed centroid(s) to mark per cluster —
+        any of "charge" (charge-weighted) and "digital" (unweighted); each
+        truth particle's true position (its own track, evaluated at the
+        sensor's mid-thickness plane) is always marked alongside them.
     """
     event_hits = hits[hits["event_id"] == event_id]
     event_hits = event_hits[event_hits["charge"] > readout_threshold]
@@ -116,6 +130,20 @@ def plot_event(
             Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, edgecolor=CLUSTER_COLOR, linewidth=2)
         )
 
+    for _, cluster_row in event_clusters.iterrows():
+        for centroid_type in centroid_types:
+            x_col, y_col = CENTROID_COLUMNS[centroid_type]
+            ax.plot(
+                cluster_row[x_col],
+                cluster_row[y_col],
+                marker=CENTROID_TYPE_MARKER[centroid_type],
+                color=CENTROID_TYPE_COLOR[centroid_type],
+                markersize=7,
+                markeredgecolor="black",
+                markeredgewidth=0.5,
+                zorder=4,
+            )
+
     for _, row in event_truth.iterrows():
         p0, p1 = charge_endpoints(
             row["x0_um"], row["y0_um"], row["dxdz"], row["dydz"], detector.thickness_um, detector.lorentz_slope
@@ -123,6 +151,15 @@ def plot_event(
         ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=TRUTH_COLOR, linewidth=1.5, zorder=3)
         ax.plot(*p0, marker="o", color=TRUTH_COLOR, markersize=4, zorder=3)
         ax.plot(*p1, marker="x", color=TRUTH_COLOR, markersize=6, zorder=3)
+
+        true_x, true_y = true_center_position(
+            row["x0_um"], row["y0_um"], row["dxdz"], row["dydz"], detector.thickness_um
+        )
+        ax.plot(
+            true_x, true_y,
+            marker=TRUE_POSITION_MARKER, color=TRUTH_COLOR, markersize=11,
+            markeredgecolor="black", markeredgewidth=0.5, zorder=4,
+        )
 
     ax.set_xlim(*x_view)
     ax.set_ylim(*y_view)
@@ -138,7 +175,19 @@ def plot_event(
     handles = [
         plt.Line2D([0], [0], color=CLUSTER_COLOR, linewidth=2, label="cluster bounding box"),
         plt.Line2D([0], [0], color=TRUTH_COLOR, linewidth=1.5, marker="o", markersize=4, label="truth track"),
+        plt.Line2D(
+            [0], [0], color=TRUTH_COLOR, marker=TRUE_POSITION_MARKER, markersize=9, linewidth=0,
+            markeredgecolor="black", markeredgewidth=0.5, label="true position (slab center)",
+        ),
     ]
+    for centroid_type in centroid_types:
+        handles.append(
+            plt.Line2D(
+                [0], [0], color=CENTROID_TYPE_COLOR[centroid_type], marker=CENTROID_TYPE_MARKER[centroid_type],
+                markersize=7, linewidth=0, markeredgecolor="black", markeredgewidth=0.5,
+                label=f"reconstructed ({CENTROID_TYPE_LABEL[centroid_type]})",
+            )
+        )
     if digital:
         handles.insert(0, Patch(facecolor=DIGITAL_ON_COLOR, label="hit (on)"))
     ax.legend(handles=handles, loc="upper right", frameon=True, fontsize=8)
@@ -163,6 +212,61 @@ def plot_cluster_summary(clusters: pd.DataFrame):
     for ax in axes:
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
+    return fig
+
+
+def plot_residual(
+    clusters: pd.DataFrame,
+    truth: pd.DataFrame,
+    detector: DetectorConfig,
+    types: tuple[str, ...] = ("charge",),
+    axis: tuple[str, ...] = ("x", "y"),
+    bins: int = 50,
+    hits: pd.DataFrame | None = None,
+    contributions: pd.DataFrame | None = None,
+):
+    """Histogram(s) of reconstructed-centroid minus true-position residuals,
+    one subplot per requested axis.
+
+    types: one or both of "charge" (charge-weighted centroid, the default)
+        and "digital" (unweighted centroid) — pass both to overlay them for
+        a direct comparison of the two reconstruction schemes.
+    axis: one or both of "x", "y".
+    hits, contributions: if both given, truth particles are matched to
+        clusters via the exact charge-contribution link instead of
+        nearest-position (see `analysis.match_clusters_to_truth`) — the
+        correct choice for overlapping multi-particle events.
+
+    The true position is each truth particle's own track evaluated at the
+    sensor's mid-thickness plane (see `sim.geometry.true_center_position`).
+    """
+    residuals_by_type = {
+        t: compute_residuals(clusters, truth, detector, type=t, hits=hits, contributions=contributions)
+        for t in types
+    }
+
+    fig, axes = plt.subplots(1, len(axis), figsize=(5.5 * len(axis), 4), squeeze=False)
+    axes = axes[0]
+
+    for ax, a in zip(axes, axis):
+        for t in types:
+            values = residuals_by_type[t][f"residual_{a}_um"]
+            ax.hist(
+                values,
+                bins=bins,
+                color=CENTROID_TYPE_COLOR[t],
+                alpha=0.6 if len(types) > 1 else 1.0,
+                label=f"{CENTROID_TYPE_LABEL[t]} (μ={values.mean():.2f}, σ={values.std():.2f})",
+            )
+        ax.axvline(0.0, color="0.3", linewidth=1, linestyle="--", zorder=1)
+        ax.set_xlabel(f"{a} residual: reconstructed - true [um]")
+        ax.set_ylabel("count")
+        ax.set_title(f"{a} residual")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.legend(fontsize=8, frameon=True)
 
     fig.tight_layout()
     return fig

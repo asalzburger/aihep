@@ -6,6 +6,7 @@ from sensor.sim.geometry import (
     charge_endpoints,
     deposited_charge,
     segment_pixel_fractions,
+    true_center_position,
 )
 
 
@@ -48,6 +49,18 @@ def test_endpoints_with_drift_shifts_entry_point_only():
     p0, p1 = charge_endpoints(x0=10, y0=20, dxdz=0.0, dydz=0.0, thickness_um=150, lorentz_slope=0.05)
     assert p0 == pytest.approx((10 + 150 * 0.05, 20))
     assert p1 == (10, 20)
+
+
+def test_true_center_position_ignores_lorentz_drift():
+    # true_center_position is the particle's own trajectory, unaffected by
+    # the charge-collection drift that charge_endpoints applies.
+    x, y = true_center_position(x0=10, y0=20, dxdz=0.0, dydz=0.0, thickness_um=150)
+    assert (x, y) == pytest.approx((10, 20))
+
+
+def test_true_center_position_is_track_midpoint():
+    x, y = true_center_position(x0=0, y0=0, dxdz=0.2, dydz=-0.1, thickness_um=150)
+    assert (x, y) == pytest.approx((0.2 * 75, -0.1 * 75))
 
 
 def test_deposited_charge_scales_with_path_length():
