@@ -224,6 +224,8 @@ def plot_residual(
     types: tuple[str, ...] = ("charge",),
     axis: tuple[str, ...] = ("x", "y"),
     bins: int = 50,
+    hits: pd.DataFrame | None = None,
+    contributions: pd.DataFrame | None = None,
 ):
     """Histogram(s) of reconstructed-centroid minus true-position residuals,
     one subplot per requested axis.
@@ -232,13 +234,18 @@ def plot_residual(
         and "digital" (unweighted centroid) — pass both to overlay them for
         a direct comparison of the two reconstruction schemes.
     axis: one or both of "x", "y".
+    hits, contributions: if both given, truth particles are matched to
+        clusters via the exact charge-contribution link instead of
+        nearest-position (see `analysis.match_clusters_to_truth`) — the
+        correct choice for overlapping multi-particle events.
 
     The true position is each truth particle's own track evaluated at the
-    sensor's mid-thickness plane (see `sim.geometry.true_center_position`),
-    matched to its nearest cluster per event/centroid-type (see
-    `analysis.match_clusters_to_truth`).
+    sensor's mid-thickness plane (see `sim.geometry.true_center_position`).
     """
-    residuals_by_type = {t: compute_residuals(clusters, truth, detector, type=t) for t in types}
+    residuals_by_type = {
+        t: compute_residuals(clusters, truth, detector, type=t, hits=hits, contributions=contributions)
+        for t in types
+    }
 
     fig, axes = plt.subplots(1, len(axis), figsize=(5.5 * len(axis), 4), squeeze=False)
     axes = axes[0]

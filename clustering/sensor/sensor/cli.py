@@ -18,14 +18,19 @@ from .sim import SimConfig, cluster_hits, digitize_events, load_config, simulate
 
 
 def run_simulation(config: SimConfig) -> tuple:
-    """Run the full pipeline. Returns (hits, clusters, truth) DataFrames."""
+    """Run the full pipeline. Returns (hits, clusters, truth, contributions) DataFrames.
+
+    contributions is each truth particle's raw per-pixel charge deposit,
+    the join key for tracing a hit/cluster back to its truth particle(s)
+    (see sensor.analysis.cluster_purity).
+    """
     seed_seq = np.random.SeedSequence(config.seed)
     rng_sim, rng_dig = (np.random.default_rng(s) for s in seed_seq.spawn(2))
 
-    grids, truth = simulate_events(config, rng=rng_sim)
+    grids, truth, contributions = simulate_events(config, rng=rng_sim)
     hits = digitize_events(grids, config, rng=rng_dig)
     hits, clusters = cluster_hits(hits, config.detector, config.cluster_connectivity, config.readout_threshold)
-    return hits, clusters, truth
+    return hits, clusters, truth, contributions
 
 
 def _cmd_run(args: argparse.Namespace) -> None:
@@ -37,19 +42,20 @@ def _cmd_run(args: argparse.Namespace) -> None:
     if args.readout_threshold is not None:
         config.readout_threshold = args.readout_threshold
 
-    hits, clusters, truth = run_simulation(config)
-    paths = write_run(args.output_dir, args.format, hits, clusters, truth)
+    hits, clusters, truth, contributions = run_simulation(config)
+    paths = write_run(args.output_dir, args.format, hits, clusters, truth, contributions)
 
     print(f"Simulated {config.n_events} event(s), seed={config.seed}")
-    print(f"  hits:     {len(hits):>8} rows -> {paths['hits']}")
-    print(f"  clusters: {len(clusters):>8} rows -> {paths['clusters']}")
-    print(f"  truth:    {len(truth):>8} rows -> {paths['truth']}")
+    print(f"  hits:          {len(hits):>8} rows -> {paths['hits']}")
+    print(f"  clusters:      {len(clusters):>8} rows -> {paths['clusters']}")
+    print(f"  truth:         {len(truth):>8} rows -> {paths['truth']}")
+    print(f"  contributions: {len(contributions):>8} rows -> {paths['contributions']}")
 
 
 def _cmd_visualize(args: argparse.Namespace) -> None:
     from .vis import plot_event  # deferred: matplotlib import only needed here
 
-    hits, clusters, truth = read_run(args.output_dir, args.format)
+    hits, clusters, truth, _contributions = read_run(args.output_dir, args.format)
     config = load_config(args.config)
     zoom = tuple(args.zoom) if args.zoom else None
     fig = plot_event(
@@ -77,13 +83,20 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
 def _cmd_analyse(args: argparse.Namespace) -> None:
     from .vis import plot_cluster_summary, plot_residual  # deferred: matplotlib import only needed here
 
-    hits, clusters, truth = read_run(args.output_dir, args.format)
+    hits, clusters, truth, contributions = read_run(args.output_dir, args.format)
     config = load_config(args.config)
 
     figs: dict[str, object] = {}
     if "residual" in args.plot:
         figs["residual"] = plot_residual(
-            clusters, truth, config.detector, types=tuple(args.type), axis=tuple(args.axis), bins=args.bins
+            clusters,
+            truth,
+            config.detector,
+            types=tuple(args.type),
+            axis=tuple(args.axis),
+            bins=args.bins,
+            hits=hits,
+            contributions=contributions,
         )
     if "clustersize" in args.plot:
         figs["clustersize"] = plot_cluster_summary(clusters)

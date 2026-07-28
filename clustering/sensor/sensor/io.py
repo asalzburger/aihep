@@ -20,10 +20,13 @@ def write_run(
     hits: pd.DataFrame,
     clusters: pd.DataFrame,
     truth: pd.DataFrame,
+    contributions: pd.DataFrame,
 ) -> dict[str, Path]:
-    return write_tables(output_dir, fmt, {"hits": hits, "clusters": clusters, "truth": truth})
+    return write_tables(
+        output_dir, fmt, {"hits": hits, "clusters": clusters, "truth": truth, "contributions": contributions}
+    )
 
 
-def read_run(output_dir: str | Path, fmt: Format) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    tables = read_tables(output_dir, fmt, ["hits", "clusters", "truth"])
-    return tables["hits"], tables["clusters"], tables["truth"]
+def read_run(output_dir: str | Path, fmt: Format) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    tables = read_tables(output_dir, fmt, ["hits", "clusters", "truth", "contributions"])
+    return tables["hits"], tables["clusters"], tables["truth"], tables["contributions"]

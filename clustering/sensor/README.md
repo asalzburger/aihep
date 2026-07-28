@@ -14,8 +14,8 @@ The `sensor` package is split into five submodules:
 |---|---|
 | `sensor.edm` | **Event data model**: the transient per-event table schemas (`hits`, `clusters`, `truth` column lists) shared by `sim`, `io`, and `vis` — the single source of truth for what a row of each table looks like. |
 | `sensor.sim` | Everything that produces an event: detector/particle configuration (`config.py`), track/pixel-grid geometry (`geometry.py`), particle generation (`simulate.py`), digitization — diffusion/noise/threshold (`digitize.py`), and connected-component cluster finding with a readout threshold and parallel charge-weighted/digital centroids (`clustering.py`). |
-| `sensor.io` | Read/write `hits`/`clusters`/`truth` tables as CSV or Apache Arrow (the serialization itself lives in [`clustering/utils`](../utils), shared with `clustering/tracker`). |
-| `sensor.analysis` | Reconstruction-quality analysis: matches each truth particle to its nearest cluster and computes reconstructed-minus-true position residuals, for both centroid definitions. |
+| `sensor.io` | Read/write `hits`/`clusters`/`truth`/`contributions` tables as CSV or Apache Arrow (the serialization itself lives in [`clustering/utils`](../utils), shared with `clustering/tracker`). |
+| `sensor.analysis` | Reconstruction-quality analysis: traces clusters back to the truth particle(s) that produced them (`cluster_purity`) and computes reconstructed-minus-true position residuals for both centroid definitions, matched exactly by charge contribution where possible. |
 | `sensor.vis` | Matplotlib visualization: single-event display, cluster summary plots, and residual plots. |
 
 `sensor.cli` ties these together into the `run`/`visualize`/`analyse`
@@ -44,15 +44,16 @@ installed explicitly rather than listed in `requirements.txt`.)
   --seed 42
 ```
 
-This writes `out/hits.arrow`, `out/clusters.arrow`, `out/truth.arrow`
-(use `--format csv` for `.csv` files instead). All flags are optional:
+This writes `out/hits.arrow`, `out/clusters.arrow`, `out/truth.arrow`,
+`out/contributions.arrow` (use `--format csv` for `.csv` files instead).
+All flags are optional:
 
 | flag | default | meaning |
 |---|---|---|
 | `--config` | none (built-in defaults) | YAML file, see [Configuration](#configuration) |
 | `--n-events` | from config (`1`) | overrides `n_events` |
 | `--seed` | from config (`null`, i.e. random) | overrides `seed` |
-| `--output-dir` | `out` | where the three tables are written |
+| `--output-dir` | `out` | where the four tables are written |
 | `--format` | `csv` | `csv` or `arrow` |
 | `--readout-threshold` | from config (`0.0`) | overrides `readout_threshold`: pixels with charge at or below this are dropped *before clustering* (see [Readout threshold](#readout-threshold)) |
 
@@ -146,10 +147,10 @@ than relying on `visualize`'s cosmetic version.
   --save-dir plots/
 ```
 
-This reads `hits`/`clusters`/`truth` from `--output-dir` (same as
-`visualize`) and writes one PNG per requested plot into `--save-dir`
-(`residual.png`, `clustersize.png`); drop `--save-dir` to show them
-interactively instead.
+This reads `hits`/`clusters`/`truth`/`contributions` from `--output-dir`
+(same as `visualize`) and writes one PNG per requested plot into
+`--save-dir` (`residual.png`, `clustersize.png`); drop `--save-dir` to show
+them interactively instead.
 
 Flags:
 
@@ -171,9 +172,18 @@ For each truth particle, its **true position** is its own trajectory
 evaluated at the sensor's mid-thickness plane (`x0 + t/2 * dxdz`, `y0 + t/2
 * dydz`) — unlike the drift-corrected track drawn in `visualize`, this is
 the particle's own path, not where the collected charge ends up, so it's
-independent of `lorentz_slope`. It's matched to the nearest cluster in the
-same event (by the requested centroid type), and the residual is
-`reconstructed - true`, in µm, per axis.
+independent of `lorentz_slope`. The residual is `reconstructed - true`, in
+µm, per axis.
+
+The truth particle needs a cluster to compare against — `analyse` (and
+`plot_residual`/`compute_residuals` as a library) matches it using the
+*exact* charge-contribution link from `contributions` whenever that table
+is available (which `analyse` always passes), falling back to
+nearest-centroid-by-position otherwise. See
+[Tracing hits/clusters to truth particles](#tracing-hitsclusters-to-truth-particles)
+for why the exact link matters — nearest-position alone can mis-assign a
+truth particle to the wrong cluster once clusters can overlap (e.g.
+`multi.n_particles > 1`, as in `configs/p3.yaml`).
 
 Both plotting functions are also usable as a library:
 
@@ -181,12 +191,15 @@ Both plotting functions are also usable as a library:
 from sensor.io import read_run
 from sensor.vis import plot_cluster_summary, plot_residual
 
-hits, clusters, truth = read_run("out/", "arrow")
+hits, clusters, truth, contributions = read_run("out/", "arrow")
 
 fig = plot_cluster_summary(clusters)
 fig.savefig("summary.png", dpi=150)
 
-fig = plot_residual(clusters, truth, config.detector, types=("charge", "digital"), axis=("x", "y"))
+fig = plot_residual(
+    clusters, truth, config.detector, types=("charge", "digital"), axis=("x", "y"),
+    hits=hits, contributions=contributions,  # exact matching; omit for nearest-position
+)
 fig.savefig("residuals.png", dpi=150)
 ```
 
@@ -195,9 +208,46 @@ Or compute residuals directly without plotting, e.g. for your own analysis:
 ```python
 from sensor.analysis import compute_residuals
 
-residuals = compute_residuals(clusters, truth, config.detector, type="charge")
+residuals = compute_residuals(clusters, truth, config.detector, type="charge", hits=hits, contributions=contributions)
 residuals["residual_x_um"].std()  # x resolution, charge-weighted centroid
 ```
+
+## Tracing hits/clusters to truth particles
+
+Every particle's raw per-pixel charge deposit (before diffusion/noise/
+threshold) is kept in the `contributions` table — `event_id, particle_id,
+ix, iy, charge` — instead of being summed away when particles share an
+event. This is what makes it possible to trace a hit pixel, or a whole
+cluster, back to the truth particle(s) that produced it, which matters as
+soon as `multi.n_particles > 1` and tracks can land in the same or
+touching pixels (`configs/p3.yaml`'s 3-particle, wide-opening-angle showers
+routinely merge into a single cluster).
+
+`sensor.analysis` provides three functions built on the join between `hits`
+(which pixel ended up in which cluster) and `contributions` (which
+particle put how much charge into which pixel):
+
+```python
+from sensor.analysis import cluster_purity, dominant_particle_per_cluster, dominant_cluster_per_particle
+
+# one row per (event, cluster, particle) that contributed to it, with the
+# fraction of that cluster's charge it accounts for
+purity = cluster_purity(hits, contributions)
+
+# one row per cluster: its single dominant contributing particle + fraction
+# (fraction << 1 flags a merged/overlapping cluster)
+dominant_particle_per_cluster(hits, contributions)
+
+# one row per particle: the cluster it contributed the most charge to
+# (the exact truth-to-cluster link used by residuals above)
+dominant_cluster_per_particle(hits, contributions)
+```
+
+Electronic noise (`digitization.noise_sigma`) isn't attributable to any
+particle and never appears in `contributions`; diffusion (a linear
+operation) is exact in the sum, so `contributions` is exact whenever
+`diffusion_sigma_um == 0` (the default) and a close approximation
+otherwise.
 
 ## Configuration
 
@@ -265,9 +315,9 @@ Notes on how these interact:
 ## Output schema (event data model)
 
 The schemas below are defined once, in `sensor/edm.py`, and reused
-by `sim` (produces them), `io` (persists them), and `vis` (reads them).
-Three tables, joined by `event_id` (and `truth`/`hits` also by
-`particle_id`/`cluster_id` respectively):
+by `sim` (produces them), `io` (persists them), and `vis`/`analysis` (read
+them). Four tables, joined by `event_id` (and `truth`/`hits`/`contributions`
+also by `particle_id`/`cluster_id`/`particle_id` respectively):
 
 **`hits`** — one row per hit pixel:
 `event_id, ix, iy, x_center_um, y_center_um, charge, cluster_id`
@@ -283,6 +333,13 @@ compared directly (see [Analyse a run](#analyse-a-run-cluster-quality-plots)).
 **`truth`** — one row per simulated particle:
 `event_id, particle_id, x0_um, y0_um, dxdz, dydz, charge_deposited, path_length_um`
 
+**`contributions`** — one row per (particle, pixel) it deposited charge
+into, before diffusion/noise/threshold:
+`event_id, particle_id, ix, iy, charge`
+
+The join key for tracing a hit/cluster back to its truth particle(s), see
+[Tracing hits/clusters to truth particles](#tracing-hitsclusters-to-truth-particles).
+
 ## Using it as a library
 
 ```python
@@ -294,7 +351,7 @@ config.n_events = 50
 config.detector.lorentz_slope = 0.2
 config.multi.n_particles = 3
 
-hits, clusters, truth = run_simulation(config)
+hits, clusters, truth, contributions = run_simulation(config)
 ```
 
 ## Tests
@@ -307,7 +364,10 @@ Covers the core line/pixel-grid intersection geometry (path-length
 conservation, drift-shifted endpoints, clipping at the grid edge, the
 true-position/mid-thickness projection) and end-to-end sanity checks (a
 perpendicular track hits exactly one pixel, Lorentz drift elongates
-clusters in x, CSV/Arrow round-trip losslessly, the readout threshold drops
-low-charge pixels before clustering, digital vs. charge-weighted centroids
-agree for single-pixel clusters and diverge for asymmetric ones, and
-truth-to-cluster matching/residuals pick the nearest cluster per event).
+clusters in x, CSV/Arrow round-trip losslessly including `contributions`,
+the readout threshold drops low-charge pixels before clustering, digital
+vs. charge-weighted centroids agree for single-pixel clusters and diverge
+for asymmetric ones, `contributions` sums back to the exact combined charge
+grid, and truth-to-cluster matching/residuals fall back to nearest-cluster
+without `contributions` but resolve a deliberately misleading
+nearest-position case correctly once the exact charge link is supplied).

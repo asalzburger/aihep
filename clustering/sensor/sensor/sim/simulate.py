@@ -6,7 +6,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ..edm import TRUTH_COLUMNS
+from ..edm import CONTRIBUTIONS_COLUMNS, TRUTH_COLUMNS
 from .config import MultiParticleConfig, ParticleConfig, SimConfig
 from .geometry import charge_endpoints, deposited_charge, path_length_through_slab, segment_pixel_fractions
 
@@ -48,8 +48,14 @@ def _sample_vertex(rng: np.random.Generator, config: SimConfig) -> tuple[float, 
     return x0, y0
 
 
-def simulate_event(rng: np.random.Generator, config: SimConfig, event_id: int) -> tuple[np.ndarray, list[dict]]:
-    """Simulate one event. Returns (charge_grid[n_pixels_x, n_pixels_y], truth_rows)."""
+def simulate_event(
+    rng: np.random.Generator, config: SimConfig, event_id: int
+) -> tuple[np.ndarray, list[dict], list[dict]]:
+    """Simulate one event. Returns (charge_grid[n_pixels_x, n_pixels_y],
+    truth_rows, contribution_rows) — contribution_rows is each particle's
+    raw per-pixel charge deposit (pre-diffusion/noise), the same fractions
+    summed into charge_grid, kept separate here so they can be traced back
+    to a particle_id (see edm.CONTRIBUTIONS_COLUMNS)."""
     detector, particle, multi = config.detector, config.particle, config.multi
     grid = np.zeros((detector.n_pixels_x, detector.n_pixels_y), dtype=float)
 
@@ -57,6 +63,7 @@ def simulate_event(rng: np.random.Generator, config: SimConfig, event_id: int) -
     dxdz_nom, dydz_nom = _sample_direction(rng, particle)
 
     truth_rows = []
+    contribution_rows = []
     for particle_id in range(multi.n_particles):
         off_x, off_y = _sample_opening_offset(rng, multi) if multi.n_particles > 1 else (0.0, 0.0)
         dxdz, dydz = dxdz_nom + off_x, dydz_nom + off_y
@@ -67,7 +74,9 @@ def simulate_event(rng: np.random.Generator, config: SimConfig, event_id: int) -
             p0, p1, detector.pitch_x_um, detector.pitch_y_um, detector.n_pixels_x, detector.n_pixels_y
         )
         for (ix, iy), frac in fractions.items():
-            grid[ix, iy] += q_total * frac
+            charge = q_total * frac
+            grid[ix, iy] += charge
+            contribution_rows.append(dict(event_id=event_id, particle_id=particle_id, ix=ix, iy=iy, charge=charge))
 
         truth_rows.append(
             dict(
@@ -82,23 +91,26 @@ def simulate_event(rng: np.random.Generator, config: SimConfig, event_id: int) -
             )
         )
 
-    return grid, truth_rows
+    return grid, truth_rows, contribution_rows
 
 
 def simulate_events(
     config: SimConfig, rng: np.random.Generator | None = None
-) -> tuple[dict[int, np.ndarray], pd.DataFrame]:
+) -> tuple[dict[int, np.ndarray], pd.DataFrame, pd.DataFrame]:
     """Run config.n_events events.
 
-    Returns ({event_id: charge_grid}, truth_df).
+    Returns ({event_id: charge_grid}, truth_df, contributions_df).
     """
     if rng is None:
         rng = np.random.default_rng(config.seed)
     grids: dict[int, np.ndarray] = {}
     truth_rows: list[dict] = []
+    contribution_rows: list[dict] = []
     for event_id in range(config.n_events):
-        grid, rows = simulate_event(rng, config, event_id)
+        grid, rows, contrib_rows = simulate_event(rng, config, event_id)
         grids[event_id] = grid
         truth_rows.extend(rows)
+        contribution_rows.extend(contrib_rows)
     truth_df = pd.DataFrame(truth_rows, columns=TRUTH_COLUMNS)
-    return grids, truth_df
+    contributions_df = pd.DataFrame(contribution_rows, columns=CONTRIBUTIONS_COLUMNS)
+    return grids, truth_df, contributions_df
