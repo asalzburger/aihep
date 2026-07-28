@@ -37,6 +37,24 @@ def test_lorentz_drift_elongates_cluster_in_x():
     assert clusters_drifted.iloc[0]["x_span_pixels"] > 1
 
 
+def test_cluster_columns_include_digital_centroid():
+    config = _base_config(**{"particle.angle_spread": 0.0, "detector.lorentz_slope": 0.0})
+    _, clusters, _ = run_simulation(config)
+
+    # single-pixel cluster: charge-weighted and digital centroids coincide
+    assert clusters.iloc[0]["x_centroid_digital_um"] == pytest.approx(clusters.iloc[0]["x_centroid_um"])
+    assert clusters.iloc[0]["y_centroid_digital_um"] == pytest.approx(clusters.iloc[0]["y_centroid_um"])
+
+
+def test_readout_threshold_removes_low_charge_clusters():
+    config = _base_config(**{"particle.angle_spread": 0.0, "detector.lorentz_slope": 0.0})
+    config.readout_threshold = 1.5  # above the ~1.0 charge deposited by a perpendicular track
+    hits, clusters, _ = run_simulation(config)
+
+    assert hits.empty
+    assert clusters.empty
+
+
 def test_multi_particle_event_produces_multiple_truth_rows():
     config = _base_config(**{"multi.n_particles": 5})
     hits, clusters, truth = run_simulation(config)

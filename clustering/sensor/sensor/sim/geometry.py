@@ -32,6 +32,21 @@ def charge_endpoints(
     return p0, p1
 
 
+def true_center_position(
+    x0: float, y0: float, dxdz: float, dydz: float, thickness_um: float
+) -> tuple[float, float]:
+    """The particle's own trajectory (x0 + z*dxdz, y0 + z*dydz), evaluated at
+    the slab's mid-thickness plane z = thickness/2.
+
+    This is the "true" hit position used as the residual reference: it is
+    the track's own path, not the Lorentz-drifted charge-collection segment
+    from `charge_endpoints` (Lorentz drift shifts where charge ends up, not
+    where the particle went).
+    """
+    z_mid = thickness_um / 2.0
+    return x0 + z_mid * dxdz, y0 + z_mid * dydz
+
+
 def path_length_through_slab(dxdz: float, dydz: float, thickness_um: float) -> float:
     return thickness_um * math.sqrt(1.0 + dxdz**2 + dydz**2)
 

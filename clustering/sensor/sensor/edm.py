@@ -24,9 +24,14 @@ CLUSTERS_COLUMNS = [
     "charge_sum",
     "x_centroid_um",
     "y_centroid_um",
+    "x_centroid_digital_um",
+    "y_centroid_digital_um",
     "x_span_pixels",
     "y_span_pixels",
 ]
+"""x_centroid_um/y_centroid_um are charge-weighted; x_centroid_digital_um/
+y_centroid_digital_um are the unweighted (digital, on/off) centroid of the
+same pixels, for comparing the two reconstruction schemes."""
 
 TRUTH_COLUMNS = [
     "event_id",

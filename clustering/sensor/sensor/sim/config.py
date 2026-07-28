@@ -56,6 +56,7 @@ class SimConfig:
     n_events: int = 1
     seed: int | None = None
     cluster_connectivity: Literal[4, 8] = 8
+    readout_threshold: float = 0.0  # pixels with charge <= this are dropped before clustering
 
 
 def _merge_dataclass(cls: type, data: dict[str, Any] | None):
@@ -88,7 +89,7 @@ def load_config(path: str | Path | None) -> SimConfig:
     for section, cls in _SECTION_TYPES.items():
         if section in raw:
             kwargs[section] = _merge_dataclass(cls, raw[section])
-    for key in ("n_events", "seed", "cluster_connectivity"):
+    for key in ("n_events", "seed", "cluster_connectivity", "readout_threshold"):
         if key in raw:
             kwargs[key] = raw[key]
 

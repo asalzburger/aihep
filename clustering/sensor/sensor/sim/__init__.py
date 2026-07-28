@@ -16,6 +16,7 @@ from .geometry import (
     deposited_charge,
     path_length_through_slab,
     segment_pixel_fractions,
+    true_center_position,
 )
 from .simulate import simulate_event, simulate_events
 
@@ -34,6 +35,7 @@ __all__ = [
     "deposited_charge",
     "path_length_through_slab",
     "segment_pixel_fractions",
+    "true_center_position",
     "simulate_event",
     "simulate_events",
 ]

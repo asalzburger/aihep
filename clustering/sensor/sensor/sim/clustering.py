@@ -11,13 +11,29 @@ from .config import DetectorConfig
 
 
 def cluster_hits(
-    hits_df: pd.DataFrame, detector: DetectorConfig, connectivity: int = 8
+    hits_df: pd.DataFrame,
+    detector: DetectorConfig,
+    connectivity: int = 8,
+    readout_threshold: float = 0.0,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Assign a cluster_id to each hit pixel (connected components per event)
     and aggregate cluster-level quantities.
 
+    readout_threshold: pixels with charge at or below this are dropped
+        before clustering, i.e. treated as not read out (mimicking a real
+        front-end comparator threshold on top of whatever digitization
+        already decided was a "hit"). Default 0.0 is a no-op given hits are
+        already produced with charge > 0.
+
+    Each cluster gets two parallel centroid definitions for comparison:
+    charge-weighted (x_centroid_um/y_centroid_um) and digital, i.e. the
+    unweighted mean of pixel centers (x_centroid_digital_um/
+    y_centroid_digital_um).
+
     Returns (hits_df_with_cluster_id, clusters_df).
     """
+    hits_df = hits_df[hits_df["charge"] > readout_threshold]
+
     if hits_df.empty:
         hits_out = hits_df.copy()
         hits_out["cluster_id"] = pd.Series(dtype=int)
@@ -47,6 +63,8 @@ def cluster_hits(
                     charge_sum=float(charge_sum),
                     x_centroid_um=float((pixels["x_center_um"] * pixels["charge"]).sum() / charge_sum),
                     y_centroid_um=float((pixels["y_center_um"] * pixels["charge"]).sum() / charge_sum),
+                    x_centroid_digital_um=float(pixels["x_center_um"].mean()),
+                    y_centroid_digital_um=float(pixels["y_center_um"].mean()),
                     x_span_pixels=int(pixels["ix"].max() - pixels["ix"].min() + 1),
                     y_span_pixels=int(pixels["iy"].max() - pixels["iy"].min() + 1),
                 )
