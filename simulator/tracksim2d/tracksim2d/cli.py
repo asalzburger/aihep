@@ -36,7 +36,10 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
 
     particles, hits = read_run(args.output_dir, args.format)
     config = load_config(args.config)
-    fig = plot_event(particles, hits, config.layers, args.event_id, track_length=args.track_length)
+    tracker_boundary = args.tracker_boundary if args.tracker_boundary is not None else config.tracker_boundary
+    fig = plot_event(
+        particles, hits, config.layers, args.event_id, track_length=args.track_length, tracker_boundary=tracker_boundary
+    )
 
     if args.save:
         fig.savefig(args.save, dpi=150, bbox_inches="tight")
@@ -66,6 +69,13 @@ def build_parser() -> argparse.ArgumentParser:
     viz_p.add_argument("--event-id", type=int, default=0)
     viz_p.add_argument(
         "--track-length", type=float, default=100.0, help="Draw length for particles with no hits"
+    )
+    viz_p.add_argument(
+        "--tracker-boundary",
+        type=float,
+        default=None,
+        help="Outer tracker radius; caps how far a drawn arc extends instead of looping back inward "
+        "(overrides the config's tracker_boundary if both are given)",
     )
     viz_p.add_argument("--save", default=None, help="Save the figure to this path instead of showing it")
     viz_p.set_defaults(func=_cmd_visualize)

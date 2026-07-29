@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 from detector2d.barrel import build_barrel_modules, module_reach
-from detector2d.geometry import CircleLayer, LineLayer
+from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 
 from tracksim2d.config import FieldConfig, ParticleGunConfig, SimConfig
 from tracksim2d.edm import PARTICLES_COLUMNS
-from tracksim2d.simulate import hits_for_particles, sample_particles, simulate_events
+from tracksim2d.simulate import boundary_crossing_s, hits_for_particles, sample_particles, simulate_events
 
 
 def _particle_row(**overrides):
@@ -73,6 +73,72 @@ def test_detailed_barrel_overlap_produces_a_genuine_double_hit():
     assert set(hits["layer_id"]) == {0}
     # both hits belong to the same physical crossing, not two unrelated ones
     assert (hits["path_length"].max() - hits["path_length"].min()) < 2 * half_length
+
+
+def test_boundary_crossing_s_is_none_without_a_boundary():
+    trajectory = Trajectory(x0=0.0, y0=0.0, phi0=0.0, radius=None)
+    assert boundary_crossing_s(trajectory, None) is None
+
+
+def test_boundary_crossing_s_finds_straight_track_crossing():
+    trajectory = Trajectory(x0=0.0, y0=0.0, phi0=0.0, radius=None)
+    assert boundary_crossing_s(trajectory, 25.0) == pytest.approx(25.0)
+
+
+def test_boundary_crossing_s_none_when_trajectory_never_reaches_it():
+    # a tight loop of radius 5 (max reach 2*5=10 from the origin) never
+    # reaches a boundary of radius 50
+    trajectory = Trajectory(x0=0.0, y0=0.0, phi0=0.0, radius=5.0)
+    assert boundary_crossing_s(trajectory, 50.0) is None
+
+
+def test_hits_for_particles_drops_the_loop_back_crossing_beyond_the_boundary():
+    # a curved trajectory starting at the origin always crosses a concentric
+    # circular layer twice (see detector2d.barrel's module docstring): once
+    # on the way out, and again after looping back through on the way in.
+    # radius=10 -> max reach 20, so a layer at radius=18 is only reachable
+    # via that second, loop-back crossing (its "first" and only crossing
+    # happens late, close to the half-loop point) -- with no boundary, that
+    # crossing is still kept; with a boundary tighter than it, it must be
+    # dropped instead of drawing the particle back in from outside the
+    # tracker volume.
+    particles = pd.DataFrame([_particle_row(radius=10.0)], columns=PARTICLES_COLUMNS)
+    layers = [CircleLayer(layer_id=0, center=(0.0, 0.0), radius=18.0)]
+
+    hits_unbounded = hits_for_particles(particles, layers, tracker_boundary=None)
+    assert len(hits_unbounded) == 1
+
+    hits_bounded = hits_for_particles(particles, layers, tracker_boundary=15.0)
+    assert len(hits_bounded) == 0
+
+
+def test_hits_for_particles_keeps_hits_within_the_boundary():
+    particles = pd.DataFrame([_particle_row()], columns=PARTICLES_COLUMNS)  # straight, along +x
+    layers = [LineLayer(layer_id=0, p1=(10.0, -5.0), p2=(10.0, 5.0))]
+    hits = hits_for_particles(particles, layers, tracker_boundary=50.0)
+    assert len(hits) == 1
+    assert hits.iloc[0]["x"] == pytest.approx(10.0)
+
+
+def test_simulate_events_passes_tracker_boundary_through_config():
+    # pt=1.0, k=0.2998 (default), bz chosen so the resolved radius is
+    # exactly 10.0 -- same loop-back setup as the test above, but exercised
+    # through the full simulate_events(config) path rather than calling
+    # hits_for_particles directly.
+    k = FieldConfig().k
+    bz = 1.0 / (k * 10.0)
+    layers = [CircleLayer(layer_id=0, center=(0.0, 0.0), radius=18.0)]
+    config = SimConfig(
+        layers=layers,
+        magnetic_field=FieldConfig(bz=bz, k=k),
+        gun=ParticleGunConfig(n_particles=1, phi_min=0.0, phi_max=0.0, charges=(1.0,), pt_min=1.0, pt_max=1.0),
+        n_events=1,
+        seed=1,
+        tracker_boundary=15.0,
+    )
+    particles, hits = simulate_events(config)
+    assert particles.iloc[0]["radius"] == pytest.approx(10.0)
+    assert len(hits) == 0  # the only crossing is the loop-back one, dropped by the boundary
 
 
 def test_sample_particles_reproducible_with_same_seed():
