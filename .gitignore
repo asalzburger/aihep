@@ -1,5 +1,7 @@
 # Data
-data
+data/
+*/out/
+out/
 
 # Python
 __pycache__/
