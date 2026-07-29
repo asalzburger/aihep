@@ -1,9 +1,12 @@
 from pathlib import Path
 
+import pytest
+import yaml
 from detector2d.geometry import CircleLayer, LineLayer
-from tracksim2d.config import SimConfig, load_config
+from tracksim2d.config import DetectorConfig, SimConfig, build_detector_layers, load_config, parse_detector_config
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "default.yaml"
+BARREL6_CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "barrel6.yaml"
 
 
 def test_defaults_with_no_config():
@@ -26,3 +29,49 @@ def test_load_default_yaml_parses_layers_and_gun():
     assert config.gun.n_particles == 3
     assert config.gun.charges == (-1.0, 1.0)
     assert config.n_events == 1
+
+
+def test_load_barrel6_yaml_simplified_is_six_bare_circles():
+    raw = yaml.safe_load(BARREL6_CONFIG_PATH.read_text())
+    raw["detector"]["mode"] = "simplified"
+    detector = parse_detector_config(raw["detector"])
+    layers = build_detector_layers(detector)
+    assert len(layers) == 6
+    assert all(isinstance(layer, CircleLayer) for layer in layers)
+    assert [layer.radius for layer in layers] == [29.0, 48.0, 68.0, 100.0, 140.0, 200.0]
+
+
+def test_load_barrel6_yaml_detailed_builds_tilted_module_rings():
+    config = load_config(BARREL6_CONFIG_PATH)
+    # every module is a LineLayer; layer_ids 0-5 each appear many times (one
+    # per module in that layer's ring), not once each.
+    assert all(isinstance(layer, LineLayer) for layer in config.layers)
+    layer_ids = {layer.layer_id for layer in config.layers}
+    assert layer_ids == {0, 1, 2, 3, 4, 5}
+    per_layer_counts = {lid: sum(1 for layer in config.layers if layer.layer_id == lid) for lid in layer_ids}
+    assert all(count > 1 for count in per_layer_counts.values())
+    # precision layers (0-2) use the precision module size/pitch, outer (3-5) the outer one
+    assert all(layer.pitch == 0.1 for layer in config.layers if layer.layer_id in (0, 1, 2))
+    assert all(layer.pitch == 0.5 for layer in config.layers if layer.layer_id in (3, 4, 5))
+
+
+def test_detector_and_flat_layers_are_mutually_exclusive(tmp_path):
+    bad_config = tmp_path / "bad.yaml"
+    bad_config.write_text(
+        """
+        detector:
+          mode: simplified
+          layers: [{layer_id: 0, radius: 10.0, kind: precision}]
+          module_types: {precision: {half_length: 1.0, tilt_deg: 0.0, overlap_fraction: 0.0}}
+        layers:
+          - {kind: circle, layer_id: 0, center: [0.0, 0.0], radius: 10.0}
+        """
+    )
+    with pytest.raises(ValueError):
+        load_config(bad_config)
+
+
+def test_build_detector_layers_rejects_unknown_mode():
+    detector = DetectorConfig(mode="bogus")
+    with pytest.raises(ValueError):
+        build_detector_layers(detector)

@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from detector2d.barrel import build_barrel_modules, module_reach
 from detector2d.geometry import CircleLayer, LineLayer
 
 from tracksim2d.config import FieldConfig, ParticleGunConfig, SimConfig
@@ -47,6 +48,31 @@ def test_particle_with_nan_radius_is_straight():
     assert len(hits) == 1
     assert hits.iloc[0]["x"] == pytest.approx(10.0)
     assert hits.iloc[0]["y"] == pytest.approx(0.0)
+
+
+def test_detailed_barrel_overlap_produces_a_genuine_double_hit():
+    """A straight particle aimed into the angular overlap between two
+    neighboring barrel modules crosses both -- hits_for_particles needs no
+    special-casing for this: it just loops over every module object (both
+    happen to share layer_id=0) and keeps whichever ones the trajectory
+    actually crosses."""
+    radius, half_length, tilt_deg, overlap_fraction = 68.0, 4.0, 10.0, 0.15
+    tilt = math.radians(tilt_deg)
+    modules = build_barrel_modules(
+        layer_id=0, radius=radius, half_length=half_length, tilt=tilt, overlap_fraction=overlap_fraction
+    )
+    n = len(modules)
+    delta = 2.0 * math.pi / n
+    reach = module_reach(radius, 2 * half_length, tilt)
+    phi_in_overlap = (delta + reach) / 2.0  # inside module 0's overlap with module 1
+
+    particles = pd.DataFrame([_particle_row(phi0=phi_in_overlap)], columns=PARTICLES_COLUMNS)
+    hits = hits_for_particles(particles, modules)
+
+    assert len(hits) == 2
+    assert set(hits["layer_id"]) == {0}
+    # both hits belong to the same physical crossing, not two unrelated ones
+    assert (hits["path_length"].max() - hits["path_length"].min()) < 2 * half_length
 
 
 def test_sample_particles_reproducible_with_same_seed():

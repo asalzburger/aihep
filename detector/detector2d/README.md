@@ -17,6 +17,7 @@ arc.
 | `detector2d/geometry.py` | `LineLayer`, `CircleLayer` (the two detector-layer shapes) and `Trajectory` (a particle's path: `radius=None` is straight, a finite signed radius is a circular arc). |
 | `detector2d/intersect.py` | `intersect(trajectory, layer)` / `first_intersection(...)`: the four straight/arc x line/circle intersection cases, returning `Hit(s, x, y, local_coord)`. |
 | `detector2d/field.py` | `signed_radius(pt, charge, bz, k)`: optional helper converting physical `(pt, charge, Bz)` into the signed radius `Trajectory` wants; skip it if you already know the radius (e.g. one fit from a picture). |
+| `detector2d/barrel.py` | `build_barrel_circle`/`build_barrel_modules`: build one cylindrical (barrel) layer either as a bare `CircleLayer`, or as a ring of identical, tilted, overlapping `LineLayer` sensor modules (all sharing one `layer_id`) -- see "Building a barrel layer" below. |
 
 ## Core model
 
@@ -43,6 +44,50 @@ positive `s` found within one extra turn either side of the direct angle —
 adequate for tracks crossing a detector stack without looping more than
 ~1.5 times before reaching a layer (see the `test_arc_beyond_quarter_turn_is_still_found`
 test for the wraparound case this specifically guards against).
+
+## Building a barrel layer
+
+A real cylindrical tracker layer isn't one continuous circle -- it's a ring
+of flat sensor modules, usually tilted and overlapping their neighbors so a
+track can cross two adjacent modules and give redundant hits near the
+overlap (used for alignment in real detectors). `detector2d/barrel.py`
+builds both the plain-circle simplification and this more detailed layer:
+
+```python
+from detector2d.barrel import build_barrel_circle, build_barrel_modules
+
+# simplified: one bare circle
+layer = build_barrel_circle(layer_id=0, radius=29.0, pitch=0.1)
+
+# detailed: a ring of tilted, overlapping LineLayer modules, all layer_id=0
+modules = build_barrel_modules(
+    layer_id=0, radius=29.0, half_length=4.0, tilt=0.1745,  # ~10 degrees
+    overlap_fraction=0.15, pitch=0.1,
+)
+```
+
+Each module's proximal edge is anchored exactly on the circle; it extends
+`2*half_length` in the tangent direction, tilted by `tilt` (radians) toward
+the center. The module count is *derived*, not configured: it's whatever
+makes the ring of tilted modules cover the requested `overlap_fraction` of
+each module's own angular width with its neighbor (0 tilt/overlap gives
+plain edge-to-edge tiling). See `module_reach` and `n_modules_for_overlap`
+if you want the derivation directly.
+
+**A curved trajectory can cross a barrel layer more than twice, for two
+unrelated reasons -- don't conflate them.** (1) The intended one: two
+adjacent modules' overlap, giving two hits close together in both position
+and arc length. (2) A pre-existing, physically real property of any
+nonzero-curvature `Trajectory` starting exactly at the origin: its own
+circular arc passes through the origin, so it always crosses a concentric
+circular layer at two points (unless the layer is out of reach) -- generally
+far apart in arc length (a first pass, then a second after most of a loop).
+A single `CircleLayer` only ever reports the nearer of these two via
+`first_intersection`; decomposing a layer into many `LineLayer` modules
+(as `build_barrel_modules` does) surfaces *both*, since each module object is
+tested independently. If you only want to see the overlap-driven kind, look
+at hits close together in arc length (`path_length` in `tracksim2d`'s
+`hits` table), not just "more than one hit on this layer_id".
 
 ## Setup
 
@@ -76,4 +121,5 @@ hit = first_intersection(bent, layer)
 Covers line-line, line-circle (miss/tangent/two-point), arc-line and
 arc-circle intersection (including a closed-form 3-4-5 circle-circle check
 and the branch-wraparound edge case above), plus straight-vs-`radius=inf`
-equivalence.
+equivalence. `test_barrel.py` covers the tiling/tilt/overlap math and checks
+that a track aimed into a module overlap really does produce two hits.

@@ -12,7 +12,7 @@ and a `cli.py` tying them together.
 | module | contents |
 |---|---|
 | `tracksim2d.edm` | The two per-event table schemas (`particles`, `hits`) shared by `simulate`, `io`, and `vis`. |
-| `tracksim2d.config` | `SimConfig`: detector layout (a list of `detector2d` `LineLayer`/`CircleLayer`), `FieldConfig` (constant out-of-plane `Bz`), `ParticleGunConfig` (random particle sampling), loaded from YAML. |
+| `tracksim2d.config` | `SimConfig`: detector layout (a list of `detector2d` `LineLayer`/`CircleLayer`), `FieldConfig` (constant out-of-plane `Bz`), `ParticleGunConfig` (random particle sampling), loaded from YAML. Layout can also be given as a higher-level `DetectorConfig` (a cylindrical/barrel detector, simplified or detailed) that expands into the same flat layer list -- see "Configuration" below. |
 | `tracksim2d.simulate` | `hits_for_particles(particles_df, layers)` propagates *any* particles table through a layout; `simulate_events(config)` additionally samples the particles from a `ParticleGunConfig`. |
 | `tracksim2d.io` | Read/write `particles`/`hits` tables as CSV or Apache Arrow. |
 | `tracksim2d.vis` | `plot_event(...)` (matplotlib) and `export_svg(...)` (dependency-free raw SVG, exact circular arcs via native `A` path commands). |
@@ -108,6 +108,48 @@ If you already know a particle's `(x0, y0, phi0, charge, radius)` — e.g.
 fit straight out of a reference picture, as in `tracking/denby` — skip the
 gun entirely and call `hits_for_particles(your_particles_df, layers)`
 directly.
+
+### `detector:` — a cylindrical (barrel) detector, built from `detector2d.barrel`
+
+For a barrel-shaped tracker (concentric circular layers), `detector:` is a
+higher-level alternative to hand-listing `layers:` (mutually exclusive with
+it — pick one). See `configs/barrel6.yaml` for a full working example: a
+6-layer detector with 3 inner "precision" layers and 3 outer layers.
+
+```yaml
+detector:
+  mode: detailed   # or simplified
+  layers:
+    - {layer_id: 0, radius: 29.0,  kind: precision}
+    - {layer_id: 3, radius: 100.0, kind: outer}
+    # ...
+  module_types:
+    precision: {half_length: 4.0, tilt_deg: 10.0, overlap_fraction: 0.15, pitch: 0.1}
+    outer:     {half_length: 8.0, tilt_deg: 8.0,  overlap_fraction: 0.10, pitch: 0.5}
+```
+
+- **`mode: simplified`** expands each layer to a bare `CircleLayer` (today's
+  behavior, one hit per particle per layer at most).
+- **`mode: detailed`** expands each layer into a ring of identical, tilted
+  `LineLayer` sensor modules (all sharing that layer's `layer_id`) via
+  `detector2d.barrel.build_barrel_modules` — same module size/tilt/overlap
+  for every layer of a given `kind`, looked up in `module_types`. The module
+  count is derived from `radius`/`half_length`/`overlap_fraction`, not
+  configured directly (see `detector2d`'s README for the geometry). Because
+  `hits_for_particles` tests every layer object independently,
+  a track crossing the overlap between two neighboring modules naturally
+  produces two hits sharing that `layer_id` — no special-casing needed.
+
+**Multiple hits on one `layer_id` in detailed mode can come from two
+unrelated things**: the intended overlap (two hits close together in
+position and `path_length`), or — for any curved (non-straight) trajectory
+starting exactly at the vertex — a second, physically real crossing as its
+own circular arc loops back through the layer (far apart in `path_length`).
+Simplified mode only ever reports the nearer of those two; decomposing into
+modules surfaces both. See `detector2d`'s README ("Building a barrel layer")
+for why. If you want to isolate genuine overlap hits, group `hits` by
+`(event_id, particle_id, layer_id)` and check that the hits' `path_length`
+values are close together, not just that there's more than one.
 
 ## Output schema (event data model)
 

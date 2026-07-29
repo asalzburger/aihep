@@ -1,0 +1,45 @@
+# A 6-layer cylindrical (barrel) detector: 3 inner "precision" layers
+# (r = 29, 48, 68) and 3 outer layers (r = 100, 140, 200).
+#
+# `detector:` is a higher-level, declarative alternative to hand-listing
+# `layers:` (see default.yaml) -- it expands into the same flat layer list
+# SimConfig understands, via detector2d.barrel.
+#
+# `mode: detailed` builds each layer from identical, slightly tilted planar
+# sensor modules (same size within each `kind`) instead of a bare circle,
+# with enough overlap between neighboring modules that a track can cross two
+# of them and produce a genuine double hit on one physical layer -- 15% for
+# precision layers, 10% for outer. Switch to `mode: simplified` to fall back
+# to one bare CircleLayer per layer (today's behavior, no double hits).
+
+detector:
+  mode: detailed
+  layers:
+    - {layer_id: 0, radius: 29.0,  kind: precision}
+    - {layer_id: 1, radius: 48.0,  kind: precision}
+    - {layer_id: 2, radius: 68.0,  kind: precision}
+    - {layer_id: 3, radius: 100.0, kind: outer}
+    - {layer_id: 4, radius: 140.0, kind: outer}
+    - {layer_id: 5, radius: 200.0, kind: outer}
+  module_types:
+    precision: {half_length: 4.0, tilt_deg: 10.0, overlap_fraction: 0.15, pitch: 0.1}
+    outer:     {half_length: 8.0, tilt_deg: 8.0,  overlap_fraction: 0.10, pitch: 0.5}
+
+field:
+  bz: 1.0          # constant field out of the 2D plane
+  k: 0.2998        # R[len] = pt / (k * |q| * bz)
+
+gun:
+  n_particles: 5
+  vertex_x: 0.0
+  vertex_y: 0.0
+  vertex_spread_x: 0.0
+  vertex_spread_y: 0.0
+  phi_min: -3.14159
+  phi_max: 3.14159
+  charges: [-1.0, 1.0]
+  pt_min: 80.0   # radius = pt / (k * |q| * bz) ~ 267-667, comfortably beyond the 200-unit outer layer
+  pt_max: 200.0
+
+n_events: 1
+seed: null
