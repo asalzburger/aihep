@@ -18,6 +18,7 @@ arc.
 | `detector2d/intersect.py` | `intersect(trajectory, layer)` / `first_intersection(...)`: the four straight/arc x line/circle intersection cases, returning `Hit(s, x, y, local_coord)`. |
 | `detector2d/field.py` | `signed_radius(pt, charge, bz, k)`: optional helper converting physical `(pt, charge, Bz)` into the signed radius `Trajectory` wants; skip it if you already know the radius (e.g. one fit from a picture). |
 | `detector2d/barrel.py` | `build_barrel_circle`/`build_barrel_modules`: build one cylindrical (barrel) layer either as a bare `CircleLayer`, or as a ring of identical, tilted, overlapping `LineLayer` sensor modules (all sharing one `layer_id`) -- see "Building a barrel layer" below. |
+| `detector2d/config.py` | Declarative detector-layout description: parse a plain dict (e.g. loaded from YAML by a downstream package) into the flat layer list above -- `build_layers_from_raw` dispatches on a hand-listed `layers:` spec vs. a higher-level `detector:` spec (`DetectorConfig`, expanded via `barrel.py`) -- see "Describing a detector layout" below. |
 
 ## Core model
 
@@ -88,6 +89,53 @@ A single `CircleLayer` only ever reports the nearer of these two via
 tested independently. If you only want to see the overlap-driven kind, look
 at hits close together in arc length (`path_length` in `tracksim2d`'s
 `hits` table), not just "more than one hit on this layer_id".
+
+## Describing a detector layout from a config dict
+
+`detector2d/config.py` is the detector-*description* layer: it turns a plain
+dict (typically loaded from YAML by a downstream package like `tracksim2d`)
+into the flat `LineLayer`/`CircleLayer` list above. It knows nothing about
+simulation (particles, fields, IO) -- that's `tracksim2d`'s job; this module
+only builds the layout.
+
+Two mutually exclusive forms, both handled by `build_layers_from_raw(raw)`:
+
+```yaml
+layers:
+  - {kind: line, layer_id: 0, p1: [10.0, -50.0], p2: [10.0, 50.0], pitch: 1.0}
+  - {kind: circle, layer_id: 5, center: [0.0, 0.0], radius: 5.0, pitch: 0.5}
+```
+
+a flat, hand-listed list of layer specs (`kind: line` needs `p1`/`p2`;
+`kind: circle` needs `center`/`radius`; both take an optional `pitch`, the
+digitization cell size consumed by `clustering/tracker`, not by this
+package) -- or, for a cylindrical (barrel) tracker:
+
+```yaml
+detector:
+  mode: detailed   # or simplified
+  layers:
+    - {layer_id: 0, radius: 29.0,  kind: precision}
+    - {layer_id: 3, radius: 100.0, kind: outer}
+    # ...
+  module_types:
+    precision: {half_length: 4.0, tilt_deg: 10.0, overlap_fraction: 0.15, pitch: 0.1}
+    outer:     {half_length: 8.0, tilt_deg: 8.0,  overlap_fraction: 0.10, pitch: 0.5}
+```
+
+a higher-level `DetectorConfig` that expands into the same flat layer list
+via `build_detector_layers` (see `simulator/tracksim2d/configs/barrel6.yaml`
+for a full working example). `mode: simplified` expands each layer to a bare
+`CircleLayer`; `mode: detailed` expands it into a ring of tilted `LineLayer`
+modules via `build_barrel_modules` (module size/tilt/overlap looked up per
+`kind` in `module_types`; the module count is derived, not configured --
+see "Building a barrel layer" above).
+
+`build_layers_from_raw` takes the *top-level* config dict (not just the
+`detector:` sub-dict), raises if both `detector:` and `layers:` are present,
+and returns `[]` if neither is. `parse_layer`, `parse_detector_config`, and
+`build_detector_layers` are the individual steps, exposed separately if a
+caller wants just one of them.
 
 ## Setup
 
