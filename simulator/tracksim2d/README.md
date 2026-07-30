@@ -25,11 +25,12 @@ subcommands, the same split as `sensor.cli`.
 ```bash
 cd simulator/tracksim2d
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e . -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../viz/style -e . -r requirements.txt
 ```
 
-(`detector2d` is a sibling path package, not on PyPI, so it's installed
-explicitly rather than listed as a `tracksim2d` dependency.)
+(`detector2d` and `viz_style` are sibling path packages, not on PyPI, so
+they're installed explicitly rather than listed as a `tracksim2d`
+dependency.)
 
 ## Run the simulation
 

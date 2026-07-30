@@ -33,7 +33,7 @@ the reference/baseline other splitters should be validated against.
 ```bash
 cd clustering/splitting
 python3 -m venv .venv
-.venv/bin/pip install -e ../utils -r requirements.txt
+.venv/bin/pip install -e ../utils -e . -r requirements.txt
 ```
 
 (`clustering_utils` is a sibling path package, not on PyPI, so it's

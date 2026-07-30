@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Didactic reimplementation of Denby (1988)'s Hopfield-network track finder"
 requires-python = ">=3.10"
 dependencies = ["numpy", "pandas", "matplotlib"]
+# viz_style is a sibling path package (not on PyPI), so it's installed
+# explicitly rather than listed here; see README.md.
 
 [build-system]
 requires = ["setuptools>=61"]

@@ -47,13 +47,13 @@ matrix -- on a genuinely independent one.
 ```bash
 cd clustering/multiplicity
 python3 -m venv .venv
-.venv/bin/pip install -e ../utils -r requirements.txt
+.venv/bin/pip install -e ../utils -e ../../viz/style -e . -r requirements.txt
 ```
 
-(`clustering_utils` is a sibling path package, not on PyPI, so it's
-installed explicitly rather than listed in `requirements.txt`. `torch` is
-listed and pulls in Apple Silicon MPS support automatically on macOS --
-no separate plugin needed.)
+(`clustering_utils` and `viz_style` are sibling path packages, not on
+PyPI, so they're installed explicitly rather than listed in
+`requirements.txt`. `torch` is listed and pulls in Apple Silicon MPS
+support automatically on macOS -- no separate plugin needed.)
 
 ## Training
 

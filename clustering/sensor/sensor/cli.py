@@ -53,11 +53,14 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_visualize(args: argparse.Namespace) -> None:
+    from viz_style import PRESENT, PRINT
+
     from .vis import plot_event  # deferred: matplotlib import only needed here
 
     hits, clusters, truth, _contributions = read_run(args.output_dir, args.format)
     config = load_config(args.config)
     zoom = tuple(args.zoom) if args.zoom else None
+    theme = PRESENT if args.style == "present" else PRINT
     fig = plot_event(
         hits,
         clusters,
@@ -69,6 +72,7 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
         readout_threshold=args.readout_threshold,
         digital=args.digital,
         centroid_types=tuple(args.type),
+        theme=theme,
     )
 
     if args.save:
@@ -81,10 +85,13 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
 
 
 def _cmd_analyse(args: argparse.Namespace) -> None:
+    from viz_style import PRESENT, PRINT
+
     from .vis import plot_cluster_summary, plot_residual  # deferred: matplotlib import only needed here
 
     hits, clusters, truth, contributions = read_run(args.output_dir, args.format)
     config = load_config(args.config)
+    theme = PRESENT if args.style == "present" else PRINT
 
     figs: dict[str, object] = {}
     if "residual" in args.plot:
@@ -97,9 +104,10 @@ def _cmd_analyse(args: argparse.Namespace) -> None:
             bins=args.bins,
             hits=hits,
             contributions=contributions,
+            theme=theme,
         )
     if "clustersize" in args.plot:
-        figs["clustersize"] = plot_cluster_summary(clusters)
+        figs["clustersize"] = plot_cluster_summary(clusters, theme=theme)
 
     if args.save_dir:
         from pathlib import Path
@@ -170,6 +178,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Which reconstructed centroid(s) to mark per cluster, alongside the true position (default: charge)",
     )
     viz_p.add_argument("--save", default=None, help="Save the figure to this path instead of showing it")
+    viz_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles/axes/labels. present: no title, no axes -- for a slide.",
+    )
     viz_p.set_defaults(func=_cmd_visualize)
 
     analyse_p = subparsers.add_parser(
@@ -202,6 +216,12 @@ def build_parser() -> argparse.ArgumentParser:
     analyse_p.add_argument("--bins", type=int, default=50, help="Histogram bin count for the residual plot")
     analyse_p.add_argument(
         "--save-dir", default=None, help="Directory to save one PNG per plot into, instead of showing interactively"
+    )
+    analyse_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles/labels. present: no title (axes/labels are always kept for these analysis plots).",
     )
     analyse_p.set_defaults(func=_cmd_analyse)
 

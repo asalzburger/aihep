@@ -32,13 +32,22 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
 
 def _cmd_visualize(args: argparse.Namespace) -> None:
+    from viz_style import PRESENT, PRINT
+
     from .vis import plot_event  # deferred: matplotlib import only needed here
 
     particles, hits = read_run(args.output_dir, args.format)
     config = load_config(args.config)
     tracker_boundary = args.tracker_boundary if args.tracker_boundary is not None else config.tracker_boundary
+    theme = PRESENT if args.style == "present" else PRINT
     fig = plot_event(
-        particles, hits, config.layers, args.event_id, track_length=args.track_length, tracker_boundary=tracker_boundary
+        particles,
+        hits,
+        config.layers,
+        args.event_id,
+        track_length=args.track_length,
+        tracker_boundary=tracker_boundary,
+        theme=theme,
     )
 
     if args.save:
@@ -78,6 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
         "(overrides the config's tracker_boundary if both are given)",
     )
     viz_p.add_argument("--save", default=None, help="Save the figure to this path instead of showing it")
+    viz_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles/axes/labels. present: no title, no axes -- for a slide.",
+    )
     viz_p.set_defaults(func=_cmd_visualize)
 
     return parser

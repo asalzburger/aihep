@@ -1,0 +1,15 @@
+[project]
+name = "multiplicity"
+version = "0.1.0"
+description = "MLP that predicts a sensor cluster's particle multiplicity from its pixel pattern"
+requires-python = ">=3.10"
+dependencies = ["pandas", "pyarrow", "numpy", "torch", "scikit-learn", "matplotlib"]
+# clustering_utils and viz_style are sibling path packages (not on PyPI),
+# so they're installed explicitly rather than listed here; see README.md.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["multiplicity"]

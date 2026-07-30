@@ -1,0 +1,15 @@
+[project]
+name = "sensor"
+version = "0.1.0"
+description = "Pixelated silicon-slab charged-particle simulation, digitization, and clustering"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "pyarrow", "pyyaml", "scipy", "matplotlib"]
+# clustering_utils and viz_style are sibling path packages (not on PyPI),
+# so they're installed explicitly rather than listed here; see README.md.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["sensor", "sensor.sim"]
