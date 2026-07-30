@@ -55,25 +55,33 @@ def _cmd_run(args: argparse.Namespace) -> None:
 def _cmd_visualize(args: argparse.Namespace) -> None:
     from viz_style import PRESENT, PRINT
 
-    from .vis import plot_event  # deferred: matplotlib import only needed here
-
     hits, clusters, truth, _contributions = read_run(args.output_dir, args.format)
     config = load_config(args.config)
     zoom = tuple(args.zoom) if args.zoom else None
-    theme = PRESENT if args.style == "present" else PRINT
-    fig = plot_event(
-        hits,
-        clusters,
-        truth,
-        config.detector,
-        args.event_id,
-        zoom=zoom,
-        grid=args.grid,
-        readout_threshold=args.readout_threshold,
-        digital=args.digital,
-        centroid_types=tuple(args.type),
-        theme=theme,
-    )
+
+    if args.view == "3d":
+        from .vis import plot_event_3d  # deferred: matplotlib import only needed here
+
+        fig = plot_event_3d(
+            hits, truth, config.detector, args.event_id, zoom=zoom, readout_threshold=args.readout_threshold
+        )
+    else:
+        from .vis import plot_event  # deferred: matplotlib import only needed here
+
+        theme = PRESENT if args.style == "present" else PRINT
+        fig = plot_event(
+            hits,
+            clusters,
+            truth,
+            config.detector,
+            args.event_id,
+            zoom=zoom,
+            grid=args.grid,
+            readout_threshold=args.readout_threshold,
+            digital=args.digital,
+            centroid_types=tuple(args.type),
+            theme=theme,
+        )
 
     if args.save:
         fig.savefig(args.save, dpi=150, bbox_inches="tight")
@@ -151,12 +159,22 @@ def build_parser() -> argparse.ArgumentParser:
     viz_p.add_argument("--format", choices=["csv", "arrow"], default="csv")
     viz_p.add_argument("--event-id", type=int, default=0)
     viz_p.add_argument(
+        "--view",
+        choices=["2d", "3d"],
+        default="2d",
+        help="2d (default): the pixel-grid/charge display. 3d: a presenter-only illustration of the truth "
+        "track(s) traversing a translucent sensor slab, with a light pixel grid and charge-colored hit "
+        "pixels (no colorbar) at the slab's mid-plane. --readout-threshold still applies to it; "
+        "--style/--grid/--digital/--type don't.",
+    )
+    viz_p.add_argument(
         "--zoom",
         type=int,
         nargs=2,
         metavar=("NX", "NY"),
         default=None,
-        help="Show only an NX x NY pixel window centered on the event's largest cluster",
+        help="Show only an NX x NY pixel window, centered on the event's largest cluster (2d) or truth "
+        "particles (3d, default 20x20 pixels -- see vis.DEFAULT_3D_ZOOM)",
     )
     viz_p.add_argument("--grid", action="store_true", help="Overlay light pixel-boundary gridlines")
     viz_p.add_argument(
