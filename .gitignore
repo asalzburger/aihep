@@ -1,9 +1,12 @@
 # Data
-data
+data/
+*/out/
+out/
 
 # Python
 __pycache__/
 __pycache__/*
+.tenv/
 .venv/
 *.egg-info/
 .pytest_cache/

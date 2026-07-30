@@ -19,7 +19,7 @@ import numpy as np
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 from matplotlib.patches import Circle as MplCircle
 
-from .simulate import trajectory_for_row
+from .simulate import boundary_crossing_s, trajectory_for_row
 
 #: Okabe-Ito colorblind-safe categorical palette, one color per particle.
 DEFAULT_TRACK_COLORS = ("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9")
@@ -28,10 +28,37 @@ HIT_COLOR = "#000000"
 VERTEX_COLOR = "#009E73"
 
 
-def plot_event(particles, hits, layers, event_id: int, track_length: float = 100.0):
-    """Matplotlib event display: layers (dashed gray), one colored trajectory
-    per particle (drawn out to its farthest hit, or ``track_length`` if it
-    has none), hits as outlined markers, vertices as stars."""
+def _track_end_s(
+    trajectory: Trajectory, particle_hits, track_length: float, tracker_boundary: float | None
+) -> float:
+    """How far to draw ``trajectory``: out to its farthest hit (or
+    ``track_length`` if it has none), capped at the tracker boundary
+    crossing (if any, via :func:`tracksim2d.simulate.boundary_crossing_s`) so
+    a curved arc doesn't loop back inward past the point where it's left the
+    tracker volume. ``hits_for_particles`` already applies this same cutoff
+    when producing hits, so this only matters for the drawn curve itself
+    (e.g. a particle with no hits, drawn out to ``track_length``)."""
+    s_end = float(particle_hits["path_length"].max()) if len(particle_hits) else track_length
+    boundary_s = boundary_crossing_s(trajectory, tracker_boundary)
+    if boundary_s is not None:
+        s_end = min(s_end, boundary_s)
+    return s_end
+
+
+def plot_event(
+    particles, hits, layers, event_id: int, track_length: float = 100.0, tracker_boundary: float | None = None
+):
+    """Matplotlib event display: layers, one colored trajectory per particle
+    (drawn out to its farthest hit, or ``track_length`` if it has none,
+    capped at ``tracker_boundary`` if given -- see :func:`_track_end_s`),
+    hits as outlined markers, vertices as stars.
+
+    A `LineLayer` is an individual physical sensor (e.g. one module of a
+    `detector:` `mode: detailed` barrel ring, or a hand-listed `layers:`
+    plane), drawn as a solid gray line. A `CircleLayer` is the idealized bare
+    surface of a whole layer (`mode: simplified`, no individual sensors to
+    show), drawn dashed to mark it as a stand-in rather than real hardware.
+    """
     event_particles = particles[particles["event_id"] == event_id]
     event_hits = hits[hits["event_id"] == event_id]
 
@@ -40,7 +67,7 @@ def plot_event(particles, hits, layers, event_id: int, track_length: float = 100
     for layer in layers:
         if isinstance(layer, LineLayer):
             (x1, y1), (x2, y2) = layer.p1, layer.p2
-            ax.plot([x1, x2], [y1, y2], color=LAYER_COLOR, linestyle="--", linewidth=1.0, zorder=1)
+            ax.plot([x1, x2], [y1, y2], color=LAYER_COLOR, linestyle="-", linewidth=1.0, zorder=1)
         elif isinstance(layer, CircleLayer):
             cx, cy = layer.center
             ax.add_patch(
@@ -53,7 +80,7 @@ def plot_event(particles, hits, layers, event_id: int, track_length: float = 100
         color = DEFAULT_TRACK_COLORS[i % len(DEFAULT_TRACK_COLORS)]
         trajectory = trajectory_for_row(particle)
         particle_hits = event_hits[event_hits["particle_id"] == particle["particle_id"]]
-        s_end = float(particle_hits["path_length"].max()) if len(particle_hits) else track_length
+        s_end = _track_end_s(trajectory, particle_hits, track_length, tracker_boundary)
 
         s_values = np.linspace(0.0, s_end, 100)
         xs, ys = zip(*(trajectory.position(s) for s in s_values))
@@ -79,13 +106,18 @@ def plot_event(particles, hits, layers, event_id: int, track_length: float = 100
     return fig
 
 
-def _layer_svg(layer) -> str:
+def _layer_svg(layer, dasharray: str) -> str:
+    """A `LineLayer` is an individual physical sensor, drawn solid (inherits
+    the group's stroke, no dasharray). A `CircleLayer` is the idealized bare
+    surface of a whole layer with no individual sensors to show, drawn
+    dashed (``dasharray``) to mark it as a stand-in rather than real
+    hardware -- see :func:`plot_event`'s docstring for the same convention."""
     if isinstance(layer, LineLayer):
         (x1, y1), (x2, y2) = layer.p1, layer.p2
         return f'<line x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" y2="{y2:.3f}"/>'
     if isinstance(layer, CircleLayer):
         cx, cy = layer.center
-        return f'<circle cx="{cx:.3f}" cy="{cy:.3f}" r="{layer.radius:.3f}"/>'
+        return f'<circle cx="{cx:.3f}" cy="{cy:.3f}" r="{layer.radius:.3f}" stroke-dasharray="{dasharray}"/>'
     raise TypeError(f"Unknown layer type: {type(layer)!r}")
 
 
@@ -125,13 +157,14 @@ def export_svg(
     hit_radius: float = 3.0,
     layer_color: str = LAYER_COLOR,
     layer_stroke_width: float = 1.5,
-    layer_dasharray: str = "6,3",
+    layer_dasharray: str = "6,3",  # applied to CircleLayer surfaces only; LineLayer sensors are always solid
     track_colors: tuple[str, ...] = DEFAULT_TRACK_COLORS,
     hit_color: str = HIT_COLOR,
     vertex_color: str = VERTEX_COLOR,
     vertex_radius: float = 3.0,
     draw_vertices: bool = True,
     extra_svg: tuple[str, ...] = (),
+    tracker_boundary: float | None = None,
 ) -> None:
     """Write a self-contained SVG of a detector layout + event to ``path``.
 
@@ -140,6 +173,8 @@ def export_svg(
     reference figure's own viewBox to make the result directly overlayable.
     ``extra_svg`` is inserted verbatim right after the opening `<svg>` tag
     (e.g. to lay a reference image/paths underneath at reduced opacity).
+    ``tracker_boundary``, if given, caps how far a drawn arc extends -- see
+    :func:`_track_end_s`.
     """
     if event_id is not None:
         particles = particles[particles["event_id"] == event_id]
@@ -152,11 +187,8 @@ def export_svg(
     ]
     parts.extend(extra_svg)
 
-    parts.append(
-        f'<g id="layers" fill="none" stroke="{layer_color}" '
-        f'stroke-width="{layer_stroke_width}" stroke-dasharray="{layer_dasharray}">'
-    )
-    parts.extend(_layer_svg(layer) for layer in layers)
+    parts.append(f'<g id="layers" fill="none" stroke="{layer_color}" stroke-width="{layer_stroke_width}">')
+    parts.extend(_layer_svg(layer, layer_dasharray) for layer in layers)
     parts.append("</g>")
 
     parts.append('<g id="tracks" fill="none" stroke-width="2">')
@@ -165,7 +197,7 @@ def export_svg(
         color = track_colors[i % len(track_colors)]
         trajectory = trajectory_for_row(particle)
         particle_hits = hits[hits["particle_id"] == particle["particle_id"]]
-        s_end = float(particle_hits["path_length"].max()) if len(particle_hits) else default_track_length
+        s_end = _track_end_s(trajectory, particle_hits, default_track_length, tracker_boundary)
         parts.append(f'<path d="{_arc_path_d(trajectory, s_end)}" stroke="{color}"/>')
         vertex_points.append(trajectory.position(0.0))
     parts.append("</g>")

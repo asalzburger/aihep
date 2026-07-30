@@ -13,7 +13,7 @@ and a `cli.py` tying them together.
 |---|---|
 | `tracksim2d.edm` | The two per-event table schemas (`particles`, `hits`) shared by `simulate`, `io`, and `vis`. |
 | `tracksim2d.config` | `SimConfig`: detector layout (a list of `detector2d` `LineLayer`/`CircleLayer`, parsed by `detector2d.config`), `FieldConfig` (constant out-of-plane `Bz`), `ParticleGunConfig` (random particle sampling), loaded from YAML. The detector layout itself -- `layers:`/`detector:` parsing -- is owned by [`detector2d.config`](../../detector/detector2d#describing-a-detector-layout-from-a-config-dict); see "Configuration" below. |
-| `tracksim2d.simulate` | `hits_for_particles(particles_df, layers)` propagates *any* particles table through a layout; `simulate_events(config)` additionally samples the particles from a `ParticleGunConfig`. |
+| `tracksim2d.simulate` | `hits_for_particles(particles_df, layers, tracker_boundary=None)` propagates *any* particles table through a layout; `simulate_events(config)` additionally samples the particles from a `ParticleGunConfig`. `tracker_boundary` stops propagation once a particle exits that radius -- see "Configuration" below. |
 | `tracksim2d.io` | Read/write `particles`/`hits` tables as CSV or Apache Arrow. |
 | `tracksim2d.vis` | `plot_event(...)` (matplotlib) and `export_svg(...)` (dependency-free raw SVG, exact circular arcs via native `A` path commands). |
 
@@ -57,7 +57,9 @@ an empty layer list (particles, but no hits).
 Drop `--save` for an interactive window. Detector layers are drawn dashed
 gray, each particle gets one color from a fixed colorblind-safe palette,
 hits are outlined markers, vertices are stars. `--track-length` sets how far
-to draw a particle that has no hits (default 100).
+to draw a particle that has no hits (default 100). `--tracker-boundary`
+overrides the config's `tracker_boundary` (see "Configuration" below) for
+this plot only.
 
 For a raw-SVG export instead (e.g. to overlay against a reference figure in
 the *same* coordinate system, as `tracking/denby` does):
@@ -93,6 +95,7 @@ gun:
 
 n_events: 1
 seed: null
+tracker_boundary: null   # e.g. 210.0 -- outer tracker radius, see below
 ```
 
 `layers`/`detector` are parsed entirely by
@@ -120,13 +123,34 @@ directly.
 `mode: detailed` can come from two unrelated things**: the intended
 module overlap (two hits close together in position and `path_length`), or
 — for any curved (non-straight) trajectory starting exactly at the vertex —
-a second, physically real crossing as its own circular arc loops back
-through the layer (far apart in `path_length`). `mode: simplified` only ever
-reports the nearer of those two; decomposing into modules surfaces both. See
-`detector2d`'s README ("Building a barrel layer") for why. If you want to
-isolate genuine overlap hits, group `hits` by
-`(event_id, particle_id, layer_id)` and check that the hits' `path_length`
-values are close together, not just that there's more than one.
+a second crossing as its own circular arc loops back through the layer (far
+apart in `path_length`). `mode: simplified` only ever reports the nearer of
+those two; decomposing into modules surfaces both. See `detector2d`'s README
+("Building a barrel layer") for why. If you want to isolate genuine overlap
+hits, group `hits` by `(event_id, particle_id, layer_id)` and check that the
+hits' `path_length` values are close together, not just that there's more
+than one.
+
+### `tracker_boundary` — no curling tracks
+
+The constant field (`field.bz`) that bends a trajectory is only physical
+inside the tracker volume; the idealized model has no concept of "leaving"
+it, so a low-`pt` particle just keeps circling forever, re-crossing layers
+it already left on the way back in (the "loop-back" crossing above). Setting
+
+```yaml
+tracker_boundary: 210.0   # e.g. just past barrel6.yaml's outermost radius (200)
+```
+
+makes `hits_for_particles`/`simulate_events` stop propagating each particle
+the moment it first exits that radius (centered at the origin) —
+`detector2d.intersect.first_intersection` against a bare `CircleLayer` at
+that radius, via `tracksim2d.simulate.boundary_crossing_s`. Any crossing
+found beyond that point is dropped, not just hidden: it never reaches the
+`hits` table. `tracksim2d.vis` applies the same cutoff to the drawn curve of
+a particle with no hits (which would otherwise be drawn out to
+`--track-length`/`default_track_length` regardless of the boundary). Leave
+it unset (`null`, the default) to keep the old unbounded behavior.
 
 ## Output schema (event data model)
 

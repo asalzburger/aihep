@@ -13,6 +13,14 @@ def test_defaults_with_no_config():
     assert config == SimConfig()
     assert config.layers == []
     assert config.n_events == 1
+    assert config.tracker_boundary is None
+
+
+def test_tracker_boundary_loaded_from_yaml(tmp_path):
+    config_path = tmp_path / "with_boundary.yaml"
+    config_path.write_text("tracker_boundary: 210.0\n")
+    config = load_config(config_path)
+    assert config.tracker_boundary == 210.0
 
 
 def test_load_default_yaml_parses_layers_and_gun():

@@ -48,6 +48,15 @@ class SimConfig:
     gun: ParticleGunConfig = field(default_factory=ParticleGunConfig)
     n_events: int = 1
     seed: int | None = None
+    #: Outer radius of the tracker volume, centered at the origin. Passed to
+    #: `tracksim2d.simulate.hits_for_particles`, which stops propagating a
+    #: particle once it first exits this radius -- past that point a curved
+    #: arc would otherwise loop back inward, which isn't physically
+    #: meaningful once the particle has left the tracker (see
+    #: `hits_for_particles`'s docstring). `tracksim2d.vis` applies the same
+    #: cutoff to the drawn curve itself. ``None`` disables the cap (the
+    #: pre-existing unbounded behavior).
+    tracker_boundary: float | None = None
 
 
 def _merge_dataclass(cls: type, data: dict[str, Any] | None):
@@ -76,7 +85,7 @@ def load_config(path: str | Path | None) -> SimConfig:
         if "charges" in gun_raw:
             gun_raw["charges"] = tuple(gun_raw["charges"])
         kwargs["gun"] = _merge_dataclass(ParticleGunConfig, gun_raw)
-    for key in ("n_events", "seed"):
+    for key in ("n_events", "seed", "tracker_boundary"):
         if key in raw:
             kwargs[key] = raw[key]
 

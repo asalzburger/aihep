@@ -19,7 +19,7 @@ import math
 import numpy as np
 import pandas as pd
 from detector2d.field import signed_radius
-from detector2d.geometry import Trajectory
+from detector2d.geometry import CircleLayer, Trajectory
 from detector2d.intersect import first_intersection
 
 from .config import Layer, ParticleGunConfig, SimConfig
@@ -32,16 +32,44 @@ def trajectory_for_row(row) -> Trajectory:
     return Trajectory(x0=row["x0"], y0=row["y0"], phi0=row["phi0"], radius=r)
 
 
-def hits_for_particles(particles_df: pd.DataFrame, layers: list[Layer]) -> pd.DataFrame:
+def boundary_crossing_s(trajectory: Trajectory, tracker_boundary: float | None) -> float | None:
+    """Arc length at which ``trajectory`` first crosses a circle of radius
+    ``tracker_boundary`` centered at the origin -- the tracker's outer
+    boundary -- or ``None`` if there is no boundary set or the trajectory
+    never reaches it (e.g. a tight low-``pt`` curl that stays inside it).
+    Reuses :mod:`detector2d.intersect` rather than re-deriving circle-crossing
+    math: the boundary is just another :class:`~detector2d.geometry.CircleLayer`."""
+    if tracker_boundary is None:
+        return None
+    boundary = CircleLayer(layer_id=-1, center=(0.0, 0.0), radius=tracker_boundary)
+    hit = first_intersection(trajectory, boundary)
+    return hit.s if hit is not None else None
+
+
+def hits_for_particles(
+    particles_df: pd.DataFrame, layers: list[Layer], tracker_boundary: float | None = None
+) -> pd.DataFrame:
     """Propagate every particle through every layer, keeping the earliest
-    (smallest arc length) crossing of each layer as that particle's hit."""
+    (smallest arc length) crossing of each layer as that particle's hit.
+
+    If ``tracker_boundary`` is given, propagation stops once the particle
+    first exits that radius (see :func:`boundary_crossing_s`): any crossing
+    beyond it is dropped. Without this cutoff, a curved trajectory's own
+    circular arc loops back through the same radius it started from (see
+    :mod:`detector2d.barrel`'s module docstring), which is not physical --
+    the constant field that bends it exists only inside the tracker volume,
+    so a real particle leaving it wouldn't curl back in.
+    """
     rows: list[dict] = []
     hit_id = 0
     for _, particle in particles_df.iterrows():
         trajectory = trajectory_for_row(particle)
+        boundary_s = boundary_crossing_s(trajectory, tracker_boundary)
         for layer in layers:
             hit = first_intersection(trajectory, layer)
             if hit is None:
+                continue
+            if boundary_s is not None and hit.s > boundary_s:
                 continue
             rows.append(
                 dict(
@@ -88,5 +116,5 @@ def simulate_events(config: SimConfig, rng: np.random.Generator | None = None) -
     for event_id in range(config.n_events):
         particle_rows.extend(sample_particles(rng, config, event_id))
     particles_df = pd.DataFrame(particle_rows, columns=PARTICLES_COLUMNS)
-    hits_df = hits_for_particles(particles_df, config.layers)
+    hits_df = hits_for_particles(particles_df, config.layers, tracker_boundary=config.tracker_boundary)
     return particles_df, hits_df

@@ -30,7 +30,7 @@ field:
   k: 0.2998        # R[len] = pt / (k * |q| * bz)
 
 gun:
-  n_particles: 5
+  n_particles: 15
   vertex_x: 0.0
   vertex_y: 0.0
   vertex_spread_x: 0.0
@@ -43,3 +43,4 @@ gun:
 
 n_events: 1
 seed: null
+tracker_boundary: 210   # e.g. 210.0 -- outer tracker radius, see below
