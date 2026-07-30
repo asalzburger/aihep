@@ -149,8 +149,16 @@ trigger") gets a small illustrative reproduction at
 ```bash
 cd tracking/denby
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
+```
 
+(`detector2d`/`tracksim2d`/`hopfield_tracking`/`viz_style` are sibling path
+packages, not on PyPI, so they're installed explicitly. `viz_style` isn't
+called directly here, but `tracksim2d.vis`/`hopfield_tracking.vis` -- used
+by the scripts below -- import it at module load, so it's a real
+dependency even though this page never touches its API.)
+
+```bash
 cd python
 ../.venv/bin/python harmonize_detector.py
 ../.venv/bin/python fit_event.py

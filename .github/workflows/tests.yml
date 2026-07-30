@@ -30,9 +30,14 @@ jobs:
             install: pip install -e . -r requirements.txt
             test: pytest tests/ -q
 
+          - name: viz-style
+            path: viz/style
+            install: pip install -e . -r requirements.txt
+            test: pytest tests/ -q
+
           - name: tracksim2d
             path: simulator/tracksim2d
-            install: pip install -e ../../detector/detector2d -e . -r requirements.txt
+            install: pip install -e ../../detector/detector2d -e ../../viz/style -e . -r requirements.txt
             test: pytest tests/ -q
 
           - name: clustering-utils
@@ -42,7 +47,7 @@ jobs:
 
           - name: sensor
             path: clustering/sensor
-            install: pip install -e ../utils -r requirements.txt
+            install: pip install -e ../utils -e ../../viz/style -r requirements.txt
             test: python -m pytest tests/ -q
 
           - name: tracker
@@ -58,12 +63,12 @@ jobs:
 
           - name: hopfield_tracking
             path: tracking/hopfield_tracking
-            install: pip install -e . -r requirements.txt
+            install: pip install -e ../../viz/style -e . -r requirements.txt
             test: pytest tests/ -q
 
           - name: denby
             path: tracking/denby
-            install: pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -r requirements.txt
+            install: pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
             test: python -m pytest tests/ -q
 
     steps:
