@@ -1,0 +1,8 @@
+# Partition each event's hits into phi sectors and fully-connect only
+# within a sector -- cuts combinatorics via pure spatial locality, with no
+# other physics-based rule. phi_width is in radians (0.5 rad ~= 28.6 deg,
+# so ~12-13 sectors around the full circle).
+
+prescription:
+  kind: regional
+  phi_width: 0.5

@@ -1,0 +1,15 @@
+[project]
+name = "graphs"
+version = "0.1.0"
+description = "Candidate track-graph construction (nodes = hits, edges = a configurable connection prescription) on top of tracksim2d"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "pyyaml", "matplotlib"]
+# tracksim2d (and, transitively, detector2d) are sibling path packages, not
+# on PyPI; install them explicitly, see README.md.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["graphs"]

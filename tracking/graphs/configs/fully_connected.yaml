@@ -1,0 +1,7 @@
+# The trivial baseline prescription: connect every hit in an event to every
+# other hit. Quadratic in hit count -- fine for a small didactic event, not
+# for a realistic one.
+
+prescription:
+  kind: fully_connected
+  directed: false   # true keeps both (i, j) and (j, i) as separate edges

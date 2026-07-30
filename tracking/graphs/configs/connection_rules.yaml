@@ -1,0 +1,12 @@
+# Explicit per-feature range gates: connect hit i -> j only if every given
+# range contains the corresponding signed delta (dst - src). Any of the four
+# can be omitted to leave that feature unconstrained. Tuned here for
+# barrel6.yaml-like layouts (concentric layers, layer_id increasing
+# outward): only connect adjacent-ish layers, moving outward, staying close
+# in azimuth.
+
+prescription:
+  kind: connection_rules
+  delta_layer_id: [1, 2]     # only to the next layer or one beyond (outward only)
+  delta_r: [0.0, 100.0]      # must move outward, by no more than 100 units
+  delta_phi: [-0.3, 0.3]     # radians; stay within a narrow azimuthal window
