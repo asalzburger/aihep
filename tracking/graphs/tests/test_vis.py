@@ -7,7 +7,8 @@ from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
 
 from graphs.build import build_edges
 from graphs.prescription import FullyConnected
-from graphs.vis import plot_edges_on, plot_event_with_graph
+from graphs.truth import label_edges
+from graphs.vis import EDGE_COLOR, TRUE_EDGE_COLOR, plot_edges_on, plot_event_with_graph
 
 
 def _hit(event_id, hit_id, x, y, layer_id, particle_id=0):
@@ -34,6 +35,38 @@ def test_plot_edges_on_draws_one_line_per_edge():
     n_lines_before = len(ax.lines)
     plot_edges_on(ax, nodes, edges)
     assert len(ax.lines) == n_lines_before + len(edges)
+    plt.close(fig)
+
+
+def test_plot_edges_on_colors_true_and_false_edges_differently_once_labeled():
+    nodes = pd.DataFrame(
+        [
+            _hit(0, 0, 0.0, 0.0, 0, particle_id=0),
+            _hit(0, 1, 10.0, 0.0, 1, particle_id=0),  # true with hit 0
+            _hit(0, 2, 10.0, 10.0, 2, particle_id=1),  # false with both
+        ],
+        columns=HITS_COLUMNS,
+    )
+    edges = label_edges(nodes, build_edges(nodes, FullyConnected()))
+
+    fig, ax = plt.subplots()
+    plot_edges_on(ax, nodes, edges)
+    colors = {line.get_color() for line in ax.lines}
+    assert TRUE_EDGE_COLOR in colors
+    assert EDGE_COLOR in colors
+    plt.close(fig)
+
+
+def test_plot_edges_on_uses_plain_color_when_unlabeled():
+    nodes = pd.DataFrame(
+        [_hit(0, 0, 0.0, 0.0, 0), _hit(0, 1, 10.0, 0.0, 1)], columns=HITS_COLUMNS
+    )
+    edges = build_edges(nodes, FullyConnected())
+    assert "is_true_edge" not in edges.columns
+
+    fig, ax = plt.subplots()
+    plot_edges_on(ax, nodes, edges)
+    assert {line.get_color() for line in ax.lines} == {EDGE_COLOR}
     plt.close(fig)
 
 
