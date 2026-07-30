@@ -14,21 +14,23 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch, Rectangle
+from viz_style import Theme, get_theme, palette
+from viz_style.mpl import style_axes
 
 from .analysis import CENTROID_COLUMNS, compute_residuals
 from .sim import DetectorConfig, charge_endpoints, true_center_position
 
-CLUSTER_COLOR = "#DA4C4C"
-TRUTH_COLOR = "#2E86DE"
-CHARGE_CMAP = "YlOrRd"  # sequential: low charge yellow -> high charge red
-DIGITAL_ON_COLOR = "#C0392B"
-GRID_COLOR = "0.85"
+CLUSTER_COLOR = palette.CLUSTER
+TRUTH_COLOR = palette.TRUTH
+CHARGE_CMAP = palette.SEQUENTIAL_CHARGE_CMAP  # sequential: low charge yellow -> high charge red
+DIGITAL_ON_COLOR = palette.DIGITAL_ON
+GRID_COLOR = palette.GRID
 DEFAULT_READOUT_THRESHOLD = 0.15  # pixels with charge <= this are not "read out"
 
 # Centroid-type identity, shared between the per-event overlay (plot_event)
 # and the residual/summary plots: charge-weighted reuses the existing
 # cluster-box red, digital gets its own hue so the two never collide.
-CENTROID_TYPE_COLOR = {"charge": CLUSTER_COLOR, "digital": "#E67E22"}
+CENTROID_TYPE_COLOR = {"charge": CLUSTER_COLOR, "digital": palette.CLUSTER_DIGITAL}
 CENTROID_TYPE_LABEL = {"charge": "charge-weighted", "digital": "digital"}
 CENTROID_TYPE_MARKER = {"charge": "D", "digital": "s"}
 TRUE_POSITION_MARKER = "*"
@@ -70,6 +72,7 @@ def plot_event(
     readout_threshold: float = DEFAULT_READOUT_THRESHOLD,
     digital: bool = False,
     centroid_types: tuple[str, ...] = ("charge",),
+    theme: Theme | None = None,
 ):
     """Plot one event's pixel grid, cluster boxes, and truth tracks.
 
@@ -85,6 +88,7 @@ def plot_event(
         any of "charge" (charge-weighted) and "digital" (unweighted); each
         truth particle's true position (its own track, evaluated at the
         sensor's mid-thickness plane) is always marked alongside them.
+    theme: print (default) or present -- see viz_style.
     """
     event_hits = hits[hits["event_id"] == event_id]
     event_hits = event_hits[event_hits["charge"] > readout_threshold]
@@ -113,7 +117,9 @@ def plot_event(
     else:
         charge_display = np.ma.masked_equal(charge_grid.T, 0.0)
         mesh = ax.pcolormesh(x_edges, y_edges, charge_display, cmap=CHARGE_CMAP, shading="flat")
-        fig.colorbar(mesh, ax=ax, label="charge", fraction=0.046, pad=0.04)
+        resolved_theme = theme or get_theme()
+        colorbar_label = "charge" if resolved_theme.show_spatial_axes else None
+        fig.colorbar(mesh, ax=ax, label=colorbar_label, fraction=0.046, pad=0.04)
 
     if grid:
         # Explicit line segments (not matplotlib's tick/grid machinery) so
@@ -164,11 +170,9 @@ def plot_event(
 
     ax.set_xlim(*x_view)
     ax.set_ylim(*y_view)
-    ax.set_xlabel("x [um]")
-    ax.set_ylabel("y [um]")
     ax.set_aspect("equal")
     mode = " [digital]" if digital else ""
-    ax.set_title(
+    title = (
         f"event {event_id}{mode}: {len(event_hits)} hit pixels "
         f"(readout > {readout_threshold}), {event_hits['cluster_id'].nunique()} cluster(s)"
     )
@@ -191,24 +195,23 @@ def plot_event(
         )
     if digital:
         handles.insert(0, Patch(facecolor=DIGITAL_ON_COLOR, label="hit (on)"))
-    ax.legend(handles=handles, loc="upper right", frameon=True, fontsize=8)
+    style_axes(
+        ax, theme, spatial=True, title=title, xlabel="x [um]", ylabel="y [um]",
+        legend=True, legend_handles=handles, legend_loc="upper right",
+    )
 
     fig.tight_layout()
     return fig
 
 
-def plot_cluster_summary(clusters: pd.DataFrame):
+def plot_cluster_summary(clusters: pd.DataFrame, theme: Theme | None = None):
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
     axes[0].hist(clusters["n_pixels"], bins=np.arange(0.5, clusters["n_pixels"].max() + 1.5), color=CLUSTER_COLOR)
-    axes[0].set_xlabel("cluster size [pixels]")
-    axes[0].set_ylabel("count")
-    axes[0].set_title("cluster size")
+    style_axes(axes[0], theme, spatial=False, title="cluster size", xlabel="cluster size [pixels]", ylabel="count")
 
     axes[1].hist(clusters["charge_sum"], bins=30, color=CLUSTER_COLOR)
-    axes[1].set_xlabel("cluster charge")
-    axes[1].set_ylabel("count")
-    axes[1].set_title("cluster charge")
+    style_axes(axes[1], theme, spatial=False, title="cluster charge", xlabel="cluster charge", ylabel="count")
 
     for ax in axes:
         ax.spines["top"].set_visible(False)
@@ -227,6 +230,7 @@ def plot_residual(
     bins: int = 50,
     hits: pd.DataFrame | None = None,
     contributions: pd.DataFrame | None = None,
+    theme: Theme | None = None,
 ):
     """Histogram(s) of reconstructed-centroid minus true-position residuals,
     one subplot per requested axis.
@@ -262,12 +266,12 @@ def plot_residual(
                 label=f"{CENTROID_TYPE_LABEL[t]} (μ={values.mean():.2f}, σ={values.std():.2f})",
             )
         ax.axvline(0.0, color="0.3", linewidth=1, linestyle="--", zorder=1)
-        ax.set_xlabel(f"{a} residual: reconstructed - true [um]")
-        ax.set_ylabel("count")
-        ax.set_title(f"{a} residual")
+        style_axes(
+            ax, theme, spatial=False, title=f"{a} residual",
+            xlabel=f"{a} residual: reconstructed - true [um]", ylabel="count", legend=True,
+        )
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
-        ax.legend(fontsize=8, frameon=True)
 
     fig.tight_layout()
     return fig

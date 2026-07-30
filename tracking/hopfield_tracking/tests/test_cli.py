@@ -1,6 +1,6 @@
 import pandas as pd
 
-from hopfield_tracking.cli import run
+from hopfield_tracking.cli import main, run
 
 
 def test_run_auto_excludes_same_layer_segments_when_layer_id_present():
@@ -26,3 +26,14 @@ def test_run_without_layer_id_column_still_works():
     segments, history, chains, score = run(hits, r_c=60.0, r_scale=50.0, seed=0)
     assert len(segments) == 2  # both directions, no layer filtering applied
     assert score["n_true_tracks"] == 1
+
+
+def test_cli_style_present_still_saves_a_figure(tmp_path):
+    hits_path = tmp_path / "hits.csv"
+    pd.DataFrame({"particle_id": [0, 0], "x": [0.0, 0.0], "y": [0.0, 50.0]}).to_csv(hits_path, index=False)
+    save_path = tmp_path / "fig8.png"
+
+    main(["run", "--hits", str(hits_path), "--save", str(save_path), "--style", "present"])
+
+    assert save_path.exists()
+    assert save_path.stat().st_size > 0

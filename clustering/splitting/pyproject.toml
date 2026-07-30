@@ -1,0 +1,15 @@
+[project]
+name = "splitting"
+version = "0.1.0"
+description = "Pluggable cluster-splitting algorithms for sensor clusters spanning multiple truth particles"
+requires-python = ">=3.10"
+dependencies = ["pandas", "pyarrow"]
+# clustering_utils is a sibling path package (not on PyPI), so it's
+# installed explicitly rather than listed here; see README.md.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["splitting"]

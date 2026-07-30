@@ -145,11 +145,14 @@ better than it currently is.
 ```bash
 cd tracking/hopfield_tracking
 python3 -m venv .venv
-.venv/bin/pip install -e . -r requirements.txt
+.venv/bin/pip install -e ../../viz/style -e . -r requirements.txt
 ```
 
 No dependency on `detector2d`/`tracksim2d` -- just `numpy`/`pandas`/
-`matplotlib` -- since this package only ever sees a plain hits table.
+`matplotlib`, plus `viz_style` (a sibling path package, not on PyPI,
+installed explicitly rather than listed as a dependency) for the
+print/present theming -- since this package only ever sees a plain hits
+table.
 
 ## Running it
 

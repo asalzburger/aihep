@@ -124,8 +124,11 @@ def _cmd_run(args: argparse.Namespace) -> None:
         print(f"score: {score}")
 
     if args.save:
+        from viz_style import PRESENT, PRINT
+
+        theme = PRESENT if args.style == "present" else PRINT
         xy = hits[["x", "y"]].to_numpy()
-        fig = plot_iterations(xy, segments, history, layout=args.layout, invert_y=not args.no_invert_y)
+        fig = plot_iterations(xy, segments, history, layout=args.layout, invert_y=not args.no_invert_y, theme=theme)
         fig.savefig(args.save, dpi=150, bbox_inches="tight")
         print(f"saved {args.save}")
 
@@ -152,6 +155,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-invert-y",
         action="store_true",
         help="Don't flip the y-axis (by default it's flipped so the vertex renders at the bottom, matching fig. 8)",
+    )
+    run_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles/axes. present: no title, no axes -- for a slide. "
+        "Only affects the figure written by --save.",
     )
     run_p.set_defaults(func=_cmd_run)
 

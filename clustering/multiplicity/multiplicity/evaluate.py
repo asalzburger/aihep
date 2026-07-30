@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from sklearn.metrics import auc, confusion_matrix, roc_curve
+from viz_style import Theme, palette
 
 from .dataset import build_dataset
 from .io import Format
@@ -16,7 +17,7 @@ from .model import MAX_PARTICLES, MIN_PARTICLES, MultiplicityMLP, decode_score
 
 # Fixed categorical hues (blue/orange/aqua), one per class, in the same
 # order used elsewhere in this repo -- never the default matplotlib cycle.
-CLASS_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
+CLASS_COLORS = palette.CLASS_COLORS
 
 
 def _class_score(score: np.ndarray, n_class: int) -> np.ndarray:
@@ -69,8 +70,9 @@ def evaluate_model(
     )
 
 
-def plot_roc(roc: dict, save_path: str | Path | None = None):
+def plot_roc(roc: dict, save_path: str | Path | None = None, theme: Theme | None = None):
     import matplotlib.pyplot as plt
+    from viz_style.mpl import style_axes
 
     fig, ax = plt.subplots(figsize=(5, 5))
     for color, (n_class, (fpr, tpr, roc_auc)) in zip(CLASS_COLORS, roc.items()):
@@ -78,29 +80,33 @@ def plot_roc(roc: dict, save_path: str | Path | None = None):
     ax.plot([0, 1], [0, 1], color="0.7", linestyle="--", linewidth=1, zorder=1)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.set_xlabel("false positive rate")
-    ax.set_ylabel("true positive rate")
-    ax.set_title("Multiplicity classifier: one-vs-rest ROC")
     ax.set_aspect("equal")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.legend(fontsize=8, loc="lower right")
+    style_axes(
+        ax, theme, spatial=False, title="Multiplicity classifier: one-vs-rest ROC",
+        xlabel="false positive rate", ylabel="true positive rate", legend=True, legend_loc="lower right",
+    )
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
     return fig
 
 
-def plot_confusion_matrix(cm: np.ndarray, classes: list[int], save_path: str | Path | None = None):
+def plot_confusion_matrix(
+    cm: np.ndarray, classes: list[int], save_path: str | Path | None = None, theme: Theme | None = None
+):
     import matplotlib.pyplot as plt
+    from viz_style.mpl import style_axes
 
     fig, ax = plt.subplots(figsize=(4.5, 4))
-    im = ax.imshow(cm, cmap="Blues")
+    im = ax.imshow(cm, cmap=palette.SEQUENTIAL_CONFUSION_CMAP)
     ax.set_xticks(range(len(classes)), labels=[str(c) for c in classes])
     ax.set_yticks(range(len(classes)), labels=[str(c) for c in classes])
-    ax.set_xlabel("predicted n particles")
-    ax.set_ylabel("true n particles")
-    ax.set_title("Confusion matrix")
+    style_axes(
+        ax, theme, spatial=False, title="Confusion matrix",
+        xlabel="predicted n particles", ylabel="true n particles",
+    )
     threshold = cm.max() / 2 if cm.max() > 0 else 0
     for i in range(len(classes)):
         for j in range(len(classes)):

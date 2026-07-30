@@ -3,10 +3,51 @@ import math
 import pandas as pd
 import pytest
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
+from viz_style import PRESENT, PRINT
 
 from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
-from tracksim2d.vis import _arc_path_d, _track_end_s, export_svg
+from tracksim2d.vis import _arc_path_d, _track_end_s, export_svg, plot_event
 from tracksim2d.simulate import boundary_crossing_s, trajectory_for_row
+
+
+def _one_particle_event():
+    particles = pd.DataFrame(
+        [dict(event_id=0, particle_id=0, x0=0.0, y0=0.0, phi0=0.0, charge=1.0, radius=math.nan)],
+        columns=PARTICLES_COLUMNS,
+    )
+    hits = pd.DataFrame(
+        [dict(event_id=0, particle_id=0, layer_id=0, hit_id=0, x=10.0, y=0.0, s_local=5.0, path_length=10.0)],
+        columns=HITS_COLUMNS,
+    )
+    layers = [LineLayer(layer_id=0, p1=(10.0, -5.0), p2=(10.0, 5.0))]
+    return particles, hits, layers
+
+
+def test_plot_event_print_keeps_title_axes_and_legend():
+    particles, hits, layers = _one_particle_event()
+    fig = plot_event(particles, hits, layers, event_id=0, theme=PRINT)
+    ax = fig.axes[0]
+    assert ax.get_title() != ""
+    assert ax.get_xlabel() == "x"
+    assert ax.get_ylabel() == "y"
+    assert ax.get_legend() is not None
+
+
+def test_plot_event_present_drops_title_axes_and_legend():
+    particles, hits, layers = _one_particle_event()
+    fig = plot_event(particles, hits, layers, event_id=0, theme=PRESENT)
+    ax = fig.axes[0]
+    assert ax.get_title() == ""
+    assert list(ax.get_xticks()) == []
+    assert list(ax.get_yticks()) == []
+    assert all(not spine.get_visible() for spine in ax.spines.values())
+    assert ax.get_legend() is None
+
+
+def test_plot_event_default_theme_matches_print():
+    particles, hits, layers = _one_particle_event()
+    fig = plot_event(particles, hits, layers, event_id=0)
+    assert fig.axes[0].get_title() != ""
 
 
 def test_arc_path_d_straight_track_is_a_line():

@@ -39,6 +39,8 @@ def _cmd_build(args: argparse.Namespace) -> None:
 
 
 def _cmd_visualize(args: argparse.Namespace) -> None:
+    from viz_style import PRESENT, PRINT
+
     from .vis import plot_event_with_graph  # deferred: matplotlib import only needed here
 
     particles, hits = read_run(args.run_dir, args.format)
@@ -48,6 +50,7 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
     if args.label_truth:
         edges = label_edges(hits, edges)
 
+    theme = PRESENT if args.style == "present" else PRINT
     fig = plot_event_with_graph(
         particles,
         hits,
@@ -56,6 +59,7 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
         args.event_id,
         track_length=args.track_length,
         tracker_boundary=args.tracker_boundary if args.tracker_boundary is not None else sim_config.tracker_boundary,
+        theme=theme,
     )
 
     if args.save:
@@ -104,6 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Label edges with is_true_edge and color true edges distinctly (see graphs.truth)",
     )
     viz_p.add_argument("--save", default=None, help="Save the figure to this path instead of showing it")
+    viz_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles/axes/labels. present: no title, no axes -- for a slide.",
+    )
     viz_p.set_defaults(func=_cmd_visualize)
 
     return parser

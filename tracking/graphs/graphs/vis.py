@@ -11,9 +11,10 @@ import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from tracksim2d.vis import plot_event
+from viz_style import Theme, palette
 
-EDGE_COLOR = "#333333"
-TRUE_EDGE_COLOR = "#7570B3"
+EDGE_COLOR = palette.EDGE
+TRUE_EDGE_COLOR = palette.TRUE_EDGE
 
 
 def plot_edges_on(
@@ -66,6 +67,7 @@ def plot_event_with_graph(
     true_edge_color: str = TRUE_EDGE_COLOR,
     true_edge_linewidth: float = 1.0,
     true_edge_alpha: float = 0.8,
+    theme: Theme | None = None,
 ) -> Figure:
     """`tracksim2d.vis.plot_event`, with this event's candidate-graph edges
     drawn underneath the trajectories and hits. ``edges`` is a full graph's
@@ -73,7 +75,10 @@ def plot_event_with_graph(
     optionally truth-labeled via `graphs.truth.label_edges` -- see
     `plot_edges_on`) -- it's filtered down to this ``event_id`` here, the
     same as `plot_event` already does for ``particles``/``hits``."""
-    fig = plot_event(particles, hits, layers, event_id, track_length=track_length, tracker_boundary=tracker_boundary)
+    fig = plot_event(
+        particles, hits, layers, event_id,
+        track_length=track_length, tracker_boundary=tracker_boundary, theme=theme,
+    )
     ax = fig.axes[0]
     event_hits = hits[hits["event_id"] == event_id]
     event_edges = edges[edges["event_id"] == event_id]

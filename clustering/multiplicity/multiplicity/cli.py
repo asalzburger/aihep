@@ -46,10 +46,15 @@ def _cmd_evaluate(args: argparse.Namespace) -> None:
         print(f"  AUC (n={n_class} vs rest): {roc_auc:.3f}")
 
     if args.save_dir:
+        from viz_style import PRESENT, PRINT
+
+        theme = PRESENT if args.style == "present" else PRINT
         save_dir = Path(args.save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
-        plot_roc(result["roc"], save_path=save_dir / "roc.png")
-        plot_confusion_matrix(result["confusion_matrix"], result["classes"], save_path=save_dir / "confusion_matrix.png")
+        plot_roc(result["roc"], save_path=save_dir / "roc.png", theme=theme)
+        plot_confusion_matrix(
+            result["confusion_matrix"], result["classes"], save_path=save_dir / "confusion_matrix.png", theme=theme
+        )
         print(f"Saved plots to {save_dir}")
 
 
@@ -77,6 +82,13 @@ def build_parser() -> argparse.ArgumentParser:
     eval_p.add_argument("--format", choices=["csv", "arrow"], default="arrow")
     eval_p.add_argument("--device", default="auto", choices=["auto", "cpu", "mps"])
     eval_p.add_argument("--save-dir", default=None, help="Directory to save ROC/confusion-matrix plots into")
+    eval_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles. present: no title (axes/labels are always kept for these analysis plots). "
+        "Only affects plots written by --save-dir.",
+    )
     eval_p.set_defaults(func=_cmd_evaluate)
 
     return parser

@@ -1,0 +1,39 @@
+# Single-entry install for the full aihep suite: from the repo root,
+#   python3 -m venv .venv
+#   .venv/bin/pip install -U pip
+#   .venv/bin/pip install -r requirements.txt
+#
+# Every path below is one of the monorepo's own packages -- this file just
+# aggregates them (each `-e` editable install pulls in that package's own
+# `pyproject.toml` dependencies; PyPI packages are never duplicated here).
+# `clustering/soho` and `tracking/denby` aren't installable packages (script
+# collections, no pyproject.toml) so their own `requirements.txt` is pulled
+# in directly with `-r` instead.
+#
+# Installing everything in one pip invocation lets pip's resolver dedupe
+# shared dependencies (numpy, pandas, pytest, ...) across packages; if you
+# only need one module, see that module's own README for a narrower install.
+
+# --- No local dependencies ---
+-e ./detector/detector2d
+-e ./clustering/utils
+-e ./viz/style
+
+# --- Depend on detector2d ---
+-e ./simulator/tracksim2d
+
+# --- Depend on clustering/utils (+ viz_style for sensor/multiplicity) ---
+-e ./clustering/sensor
+-e ./clustering/tracker
+-e ./clustering/splitting
+-e ./clustering/multiplicity
+
+# --- Depend on tracksim2d/detector2d (+ viz_style) ---
+-e ./tracking/graphs
+
+# --- Depend on viz_style only (plain hit points, no detector2d) ---
+-e ./tracking/hopfield_tracking
+
+# --- Script collections (no installable package of their own) ---
+-r ./clustering/soho/requirements.txt
+-r ./tracking/denby/requirements.txt

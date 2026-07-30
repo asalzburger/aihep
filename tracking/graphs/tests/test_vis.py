@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from detector2d.geometry import LineLayer
 from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
+from viz_style import PRESENT, PRINT
 
 from graphs.build import build_edges
 from graphs.prescription import FullyConnected
@@ -121,3 +122,21 @@ def test_plot_event_with_graph_filters_edges_to_the_requested_event():
     # both drawn via ax.plot by plot_event) + 1 edge (event 0's only edge)
     assert len(fig.axes[0].lines) == 4
     plt.close(fig)
+
+
+def test_plot_event_with_graph_forwards_theme_to_plot_event():
+    layers = [LineLayer(layer_id=0, p1=(10.0, -5.0), p2=(10.0, 5.0))]
+    particles = pd.DataFrame(
+        [dict(event_id=0, particle_id=0, x0=0.0, y0=0.0, phi0=0.0, charge=1.0, radius=math.nan)],
+        columns=PARTICLES_COLUMNS,
+    )
+    hits = pd.DataFrame([_hit(0, 0, 10.0, 0.0, 0, particle_id=0)], columns=HITS_COLUMNS)
+    edges = build_edges(hits, FullyConnected())
+
+    fig_print = plot_event_with_graph(particles, hits, edges, layers, event_id=0, theme=PRINT)
+    assert fig_print.axes[0].get_title() != ""
+    plt.close(fig_print)
+
+    fig_present = plot_event_with_graph(particles, hits, edges, layers, event_id=0, theme=PRESENT)
+    assert fig_present.axes[0].get_title() == ""
+    plt.close(fig_present)

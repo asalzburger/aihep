@@ -27,11 +27,12 @@ entry point that wires `sim` → `io` → `analysis`/`vis`.
 ```bash
 cd clustering/sensor
 python3 -m venv .venv
-.venv/bin/pip install -e ../utils -r requirements.txt
+.venv/bin/pip install -e ../utils -e ../../viz/style -e . -r requirements.txt
 ```
 
-(`clustering_utils` is a sibling path package, not on PyPI, so it's
-installed explicitly rather than listed in `requirements.txt`.)
+(`clustering_utils` and `viz_style` are sibling path packages, not on
+PyPI, so they're installed explicitly rather than listed in
+`requirements.txt`.)
 
 ## Run the simulation
 

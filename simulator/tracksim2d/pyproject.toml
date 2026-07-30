@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "2D particle event generation, CSV/Arrow IO, and visualization on top of detector2d"
 requires-python = ">=3.10"
 dependencies = ["numpy", "pandas", "pyarrow", "pyyaml", "matplotlib"]
-# detector2d is a sibling path package (not on PyPI); install it explicitly,
-# see README.md -- listing it here would make `pip install .` try to fetch
-# it from PyPI and fail.
+# detector2d and viz_style are sibling path packages (not on PyPI); install
+# them explicitly, see README.md -- listing them here would make
+# `pip install .` try to fetch them from PyPI and fail.
 
 [build-system]
 requires = ["setuptools>=61"]

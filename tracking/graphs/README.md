@@ -139,11 +139,12 @@ a glance.
 ```bash
 cd tracking/graphs
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e . -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../../viz/style -e . -r requirements.txt
 ```
 
-(`detector2d`/`tracksim2d` are sibling path packages, not on PyPI, so
-they're installed explicitly rather than listed as a `graphs` dependency.)
+(`detector2d`/`tracksim2d`/`viz_style` are sibling path packages, not on
+PyPI, so they're installed explicitly rather than listed as a `graphs`
+dependency.)
 
 ## Building a graph
 

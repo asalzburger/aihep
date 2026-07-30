@@ -10,13 +10,15 @@ from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
+from viz_style import Theme, get_theme, palette
+from viz_style.mpl import style_axes
 
 from .dynamics import RelaxationHistory, DEFAULT_DT_OVER_TAU
 from .extract import ON_THRESHOLD, on_segments
 from .network import Segment
 
-ON_COLOR = "#0072B2"
-HIT_COLOR = "#000000"
+ON_COLOR = palette.ON
+HIT_COLOR = palette.HIT
 
 
 def _panel_iterations(n_available: int, n_panels: int = 4) -> list[int]:
@@ -45,6 +47,7 @@ def plot_iterations(
     threshold: float = ON_THRESHOLD,
     layout: Literal["grid", "row"] = "grid",
     invert_y: bool = True,
+    theme: Theme | None = None,
 ):
     """`layout="grid"` (default) tiles panels as close to a square as
     possible -- 2x2 for the usual 4 panels, matching fig. 8's own layout in
@@ -83,7 +86,10 @@ def plot_iterations(
         if invert_y:
             ax.invert_yaxis()
         elapsed = it * dt_over_tau
-        ax.set_title(f"Energy  {history.energy[it]:.4f}\nIteration  {it}   T = {elapsed:.1f}τ", fontsize=9)
+        resolved_theme = theme or get_theme()
+        if resolved_theme.show_title:
+            ax.set_title(f"Energy  {history.energy[it]:.4f}\nIteration  {it}   T = {elapsed:.1f}τ", fontsize=9)
+        style_axes(ax, resolved_theme, spatial=True)  # picks up spine-stripping under `present`; ticks already off above
 
     for ax in flat_axes[len(iterations) :]:
         ax.axis("off")

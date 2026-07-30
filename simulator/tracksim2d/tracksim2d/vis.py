@@ -18,14 +18,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 from matplotlib.patches import Circle as MplCircle
+from viz_style import Theme, palette
+from viz_style.mpl import style_axes
 
 from .simulate import boundary_crossing_s, trajectory_for_row
 
 #: Okabe-Ito colorblind-safe categorical palette, one color per particle.
-DEFAULT_TRACK_COLORS = ("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9")
-LAYER_COLOR = "#999999"
-HIT_COLOR = "#000000"
-VERTEX_COLOR = "#009E73"
+DEFAULT_TRACK_COLORS = palette.CATEGORICAL_OKABE_ITO
+LAYER_COLOR = palette.LAYER
+HIT_COLOR = palette.HIT
+VERTEX_COLOR = palette.VERTEX
 
 
 def _track_end_s(
@@ -46,7 +48,13 @@ def _track_end_s(
 
 
 def plot_event(
-    particles, hits, layers, event_id: int, track_length: float = 100.0, tracker_boundary: float | None = None
+    particles,
+    hits,
+    layers,
+    event_id: int,
+    track_length: float = 100.0,
+    tracker_boundary: float | None = None,
+    theme: Theme | None = None,
 ):
     """Matplotlib event display: layers, one colored trajectory per particle
     (drawn out to its farthest hit, or ``track_length`` if it has none,
@@ -96,12 +104,12 @@ def plot_event(
         if len(particle_hits):
             ax.scatter(particle_hits["x"], particle_hits["y"], color=color, edgecolors=HIT_COLOR, s=40, zorder=3)
 
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
     ax.set_aspect("equal")
-    ax.set_title(f"event {event_id}: {len(event_particles)} particle(s), {len(event_hits)} hit(s)")
-    if len(event_particles):
-        ax.legend(loc="best", frameon=True, fontsize=8)
+    style_axes(
+        ax, theme, spatial=True,
+        title=f"event {event_id}: {len(event_particles)} particle(s), {len(event_hits)} hit(s)",
+        xlabel="x", ylabel="y", legend=bool(len(event_particles)),
+    )
     fig.tight_layout()
     return fig
 
