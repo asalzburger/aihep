@@ -37,6 +37,12 @@ between the two hits' ``(x, y)``. Computed the same way regardless of which
 features, useful both for `~graphs.prescription.ConnectionRules` gating and
 as GNN edge features downstream."""
 
+LABELED_EDGES_COLUMNS = EDGES_COLUMNS + ["is_true_edge"]
+"""`EDGES_COLUMNS` plus `is_true_edge` -- the schema of an edges table after
+`graphs.truth.label_edges`. Ground truth (`particle_id`) only ever exists
+for simulated data, so this is a separate, optional column, never something
+`graphs.build.build_edges` produces on its own (see `graphs.truth`)."""
+
 
 @dataclass
 class TrackGraph:

@@ -20,6 +20,7 @@ from .build import build_edges
 from .config import load_config as load_graph_config
 from .edm import TrackGraph
 from .io import write_graph
+from .truth import label_edges, purity
 
 
 def _cmd_build(args: argparse.Namespace) -> None:
@@ -27,9 +28,13 @@ def _cmd_build(args: argparse.Namespace) -> None:
     graph_config = load_graph_config(args.config)
 
     edges = build_edges(hits, graph_config.prescription)
+    if args.label_truth:
+        edges = label_edges(hits, edges)
     paths = write_graph(args.output_dir, args.format, TrackGraph(nodes=hits, edges=edges))
 
     print(f"Built {len(edges)} edge(s) from {len(hits)} hit(s), prescription={graph_config.prescription!r}")
+    if args.label_truth:
+        print(f"  purity: {purity(edges):.3f} (fraction of edges connecting the same particle)")
     print(f"  edges: {len(edges):>8} rows -> {paths['edges']}")
 
 
@@ -40,6 +45,8 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
     sim_config = load_sim_config(args.sim_config)
     graph_config = load_graph_config(args.graph_config)
     edges = build_edges(hits, graph_config.prescription)
+    if args.label_truth:
+        edges = label_edges(hits, edges)
 
     fig = plot_event_with_graph(
         particles,
@@ -69,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     build_p.add_argument("--format", choices=["csv", "arrow"], default="csv")
     build_p.add_argument("--config", default=None, help="YAML prescription config (defaults to fully_connected)")
     build_p.add_argument("--output-dir", default="out", help="Directory to write edges.<format> into")
+    build_p.add_argument(
+        "--label-truth",
+        action="store_true",
+        help="Add the is_true_edge ground-truth column (same particle_id) and print purity",
+    )
     build_p.set_defaults(func=_cmd_build)
 
     viz_p = subparsers.add_parser("visualize", help="Plot a single event's graph on top of its simulation display")
@@ -85,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="Outer tracker radius; overrides --sim-config's tracker_boundary if both are given",
+    )
+    viz_p.add_argument(
+        "--label-truth",
+        action="store_true",
+        help="Label edges with is_true_edge and color true edges distinctly (see graphs.truth)",
     )
     viz_p.add_argument("--save", default=None, help="Save the figure to this path instead of showing it")
     viz_p.set_defaults(func=_cmd_visualize)

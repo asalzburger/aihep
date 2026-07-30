@@ -21,7 +21,8 @@ layer geometry itself.
 | `graphs.config` | `GraphConfig`/`load_config(path)` -- the same YAML load/merge pattern as `tracksim2d.config.load_config`, for a `prescription:` section. |
 | `graphs.build` | `build_edges(hits, prescription)` / `build_graph(hits, prescription)` -- the actual pair-selection + edge-feature logic per prescription kind. |
 | `graphs.io` | Read/write the edges table as CSV or Apache Arrow, reusing `tracksim2d.io`. |
-| `graphs.vis` | `plot_edges_on(ax, nodes, edges)` / `plot_event_with_graph(...)` -- draws edges *on top of* `tracksim2d.vis.plot_event`, rather than duplicating its layer/trajectory/hit drawing. |
+| `graphs.truth` | `label_edges`/`label_graph` (ground-truth `is_true_edge` labeling) and `purity` -- see "Edge truth labeling" below. |
+| `graphs.vis` | `plot_edges_on(ax, nodes, edges)` / `plot_event_with_graph(...)` -- draws edges *on top of* `tracksim2d.vis.plot_event`, rather than duplicating its layer/trajectory/hit drawing. Colors true/false edges differently once labeled. |
 
 `graphs.cli` wires `build` -> `visualize` into subcommands, the same split
 as `tracksim2d.cli`.
@@ -105,6 +106,34 @@ prescription = ConnectionRules(delta_layer_id=(1.0, 1.0))
 graph = build_graph(hits, prescription)
 ```
 
+## Edge truth labeling
+
+`graphs.build` never looks at `particle_id` -- building the candidate graph
+should work the same way it would on real data, where ground truth doesn't
+exist. `graphs.truth` is a deliberately separate, optional second step that
+*does* use it, for simulated data:
+
+```python
+from graphs.truth import label_edges, label_graph, purity
+
+labeled_edges = label_edges(graph.nodes, graph.edges)   # or: label_graph(graph).edges
+purity(labeled_edges)   # fraction of edges connecting the same particle
+```
+
+This adds an `is_true_edge` bool column (`graphs.edm.LABELED_EDGES_COLUMNS`):
+`True` iff the edge's two hits share a `particle_id`. That's the standard
+"same-track" truth definition used to train/score a GNN edge classifier --
+note it does *not* also require the two hits to be adjacent along the
+track, so a same-particle edge that skips a layer (e.g. a `ConnectionRules`
+`delta_layer_id` range wider than 1) is still labeled true. `purity` raises
+if `edges` hasn't been labeled yet, and is `nan` for an empty graph.
+
+Both CLI subcommands take `--label-truth` to opt into this: `build` adds the
+column to the written edges table and prints the graph's purity;
+`visualize` labels on the fly and colors true edges more boldly (see
+`graphs.vis.plot_edges_on`) so mislabeled/spurious connections stand out at
+a glance.
+
 ## Setup
 
 ```bash
@@ -129,7 +158,9 @@ they're installed explicitly rather than listed as a `graphs` dependency.)
 Reads `particles.<format>`/`hits.<format>` from `--run-dir` (a directory
 already written by `tracksim2d.cli run`), builds the graph under the given
 prescription, and writes `out/edges.<format>`. With no `--config`, the
-prescription defaults to `fully_connected`.
+prescription defaults to `fully_connected`. Add `--label-truth` to include
+the ground-truth `is_true_edge` column and print the graph's purity (see
+"Edge truth labeling" below).
 
 ## Visualizing a graph
 
@@ -148,6 +179,8 @@ two hits' `(x, y)`. `--sim-config` is the *same* config the `tracksim2d` run
 used (for the detector layout to draw); `--graph-config` selects the
 prescription; `--tracker-boundary` overrides the sim config's
 `tracker_boundary` for this plot only, same as `tracksim2d.cli visualize`.
+Add `--label-truth` to color true edges more boldly (see "Edge truth
+labeling" below).
 
 ## Using it as a library
 
@@ -177,5 +210,7 @@ config load/merge and the three example YAML files; edge construction for
 each prescription (fully-connected undirected/directed, regional
 sector-locality, connection-rule range gating including the phi-wraparound
 case), edge-feature values, and that events never cross-connect; CSV/Arrow
-IO round-trip; the visualization overlay (edge count, event filtering); and
-the `build`/`visualize` CLI subcommands end to end.
+IO round-trip; truth labeling and purity (including the unlabeled/empty
+error cases); the visualization overlay (edge count, event filtering,
+true/false edge coloring); and the `build`/`visualize` CLI subcommands end
+to end, with and without `--label-truth`.
