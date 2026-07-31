@@ -34,8 +34,8 @@ they're installed explicitly as path installs (see [Install](#install)) so
 
 | module | what it does |
 |---|---|
-| [`detector/detector2d`](detector/detector2d) | 2D detector geometry and trajectory-intersection primitives (line/circle layers, straight/arc trajectories). No pandas/IO -- the pure-math layer everything else builds on. |
-| [`simulator/tracksim2d`](simulator/tracksim2d) | Particle event generation, CSV/Arrow IO, and visualization for a 2D tracking detector, on top of `detector2d`. |
+| [`detector/detector2d`](detector/detector2d) | 2D detector geometry and trajectory-intersection primitives (line/circle layers, straight/arc trajectories, segmented calorimeter rings, polygonal muon stations, and piecewise-radial field maps with the multi-arc propagation they imply). No pandas/IO -- the pure-math layer everything else builds on. |
+| [`simulator/tracksim2d`](simulator/tracksim2d) | Particle event generation, CSV/Arrow IO, and visualization for a full 2D detector -- tracker, EM and hadronic calorimeters, muon system -- on top of `detector2d`. Particles have species, and the three interaction classes (EM / hadronic / muon) stop in three different places. |
 | [`clustering/utils`](clustering/utils) | Shared CSV/Apache Arrow table read/write, factored out once from `sensor`/`tracker`'s originally-duplicated IO. |
 | [`viz/style`](viz/style) | Centralized matplotlib theming (`Theme`: `print`, the default, matching each package's original look; `present`, no titles anywhere and no axes for detector/sensor spatial displays) and a canonical color palette (Okabe-Ito categorical cycle + named semantic colors), consumed via an optional `theme=` parameter and CLI `--style` flag across `sensor`/`tracksim2d`/`graphs`/`hopfield_tracking`/`multiplicity`. |
 | [`clustering/sensor`](clustering/sensor) | Simulates charged particles crossing a pixelated silicon slab: digitization, connected-component clustering, and analysis/visualization. |
