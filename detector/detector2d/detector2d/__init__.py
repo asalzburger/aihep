@@ -1,34 +1,77 @@
 from .barrel import build_barrel_circle, build_barrel_modules, module_reach, n_modules_for_overlap
+from .calorimeter import CaloRing, CaloStackConfig, build_calo_stack, build_calo_stack_from_config
 from .config import (
     DetectorConfig,
     DetectorLayerConfig,
     ModuleTypeConfig,
+    MuonConfig,
+    build_calorimeter_layers,
     build_detector_layers,
     build_layers_from_raw,
+    build_muon_layers,
+    parse_calorimeter_config,
     parse_detector_config,
+    parse_field_regions,
     parse_layer,
+    parse_muon_config,
 )
-from .field import signed_radius
+from .field import FieldRegion, FieldRegions, signed_radius
 from .geometry import CircleLayer, LineLayer, Trajectory
 from .intersect import Hit, first_intersection, intersect
+from .polygon import (
+    build_muon_system,
+    build_polygon,
+    build_polygon_triplet_station,
+    polygon_vertices,
+)
+from .propagate import (
+    Segment,
+    SegmentedTrajectory,
+    first_intersection_path,
+    intersect_path,
+    intersect_segmented,
+    propagate,
+)
 
 __all__ = [
+    "CaloRing",
+    "CaloStackConfig",
     "CircleLayer",
     "DetectorConfig",
     "DetectorLayerConfig",
+    "FieldRegion",
+    "FieldRegions",
     "Hit",
     "LineLayer",
     "ModuleTypeConfig",
+    "MuonConfig",
+    "Segment",
+    "SegmentedTrajectory",
     "Trajectory",
     "build_barrel_circle",
     "build_barrel_modules",
+    "build_calo_stack",
+    "build_calo_stack_from_config",
+    "build_calorimeter_layers",
     "build_detector_layers",
     "build_layers_from_raw",
+    "build_muon_layers",
+    "build_muon_system",
+    "build_polygon",
+    "build_polygon_triplet_station",
     "first_intersection",
+    "first_intersection_path",
     "intersect",
+    "intersect_path",
+    "intersect_segmented",
     "module_reach",
     "n_modules_for_overlap",
+    "parse_calorimeter_config",
     "parse_detector_config",
+    "parse_field_regions",
     "parse_layer",
+    "parse_muon_config",
+    "polygon_vertices",
+    "propagate",
     "signed_radius",
 ]

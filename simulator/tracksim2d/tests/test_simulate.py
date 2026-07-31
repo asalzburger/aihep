@@ -136,7 +136,7 @@ def test_simulate_events_passes_tracker_boundary_through_config():
         seed=1,
         tracker_boundary=15.0,
     )
-    particles, hits = simulate_events(config)
+    particles, hits, _deposits = simulate_events(config)
     assert particles.iloc[0]["radius"] == pytest.approx(10.0)
     assert len(hits) == 0  # the only crossing is the loop-back one, dropped by the boundary
 
@@ -164,7 +164,7 @@ def test_simulate_events_end_to_end():
         n_events=3,
         seed=42,
     )
-    particles, hits = simulate_events(config)
+    particles, hits, _deposits = simulate_events(config)
     assert len(particles) == 15  # 3 events * 5 particles
     assert np.isinf(particles["radius"]).all()  # bz=0 -> straight (signed_radius returns inf)
     assert len(hits) == 15  # every straight, shallow-angle particle crosses the one layer
