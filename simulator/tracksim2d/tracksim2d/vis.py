@@ -16,35 +16,137 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from detector2d.calorimeter import CaloRing
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
+from matplotlib.colors import Normalize
 from matplotlib.patches import Circle as MplCircle
+from matplotlib.patches import Wedge
 from viz_style import Theme, palette
 from viz_style.mpl import style_axes
 
-from .simulate import boundary_crossing_s, trajectory_for_row
+from .simulate import boundary_crossing_s, path_for_row, trajectory_for_row
 
 #: Okabe-Ito colorblind-safe categorical palette, one color per particle.
 DEFAULT_TRACK_COLORS = palette.CATEGORICAL_OKABE_ITO
 LAYER_COLOR = palette.LAYER
+CALO_COLOR = palette.CALO
+MUON_COLOR = palette.MUON
 HIT_COLOR = palette.HIT
 VERTEX_COLOR = palette.VERTEX
+ENERGY_CMAP = palette.SEQUENTIAL_CHARGE_CMAP
 
 
 def _track_end_s(
-    trajectory: Trajectory, particle_hits, track_length: float, tracker_boundary: float | None
+    path,
+    particle_hits,
+    track_length: float,
+    tracker_boundary: float | None,
+    particle_deposits=None,
 ) -> float:
-    """How far to draw ``trajectory``: out to its farthest hit (or
-    ``track_length`` if it has none), capped at the tracker boundary
-    crossing (if any, via :func:`tracksim2d.simulate.boundary_crossing_s`) so
-    a curved arc doesn't loop back inward past the point where it's left the
-    tracker volume. ``hits_for_particles`` already applies this same cutoff
-    when producing hits, so this only matters for the drawn curve itself
-    (e.g. a particle with no hits, drawn out to ``track_length``)."""
-    s_end = float(particle_hits["path_length"].max()) if len(particle_hits) else track_length
-    boundary_s = boundary_crossing_s(trajectory, tracker_boundary)
+    """How far to draw ``path``: out to whichever it reaches last, its
+    farthest hit or its farthest calorimeter deposit (or ``track_length`` if
+    it has neither), capped at the tracker boundary crossing (if any, via
+    :func:`tracksim2d.simulate.boundary_crossing_s`) so a curved arc doesn't
+    loop back inward past the point where it's left the tracker volume, and at
+    the path's own end.
+
+    Deposits matter here because a neutral EM particle leaves *no* hits at all
+    -- a photon drawn only to its hits would not be drawn at all, when in fact
+    it flew straight to the ECAL and stopped there.
+    """
+    reach = float(particle_hits["path_length"].max()) if len(particle_hits) else 0.0
+    if particle_deposits is not None and len(particle_deposits):
+        radius = float(np.hypot(particle_deposits["x"], particle_deposits["y"]).max())
+        deposit_s = boundary_crossing_s(path, radius)
+        if deposit_s is not None:
+            reach = max(reach, deposit_s)
+
+    s_end = reach if reach > 0.0 else track_length
+    boundary_s = boundary_crossing_s(path, tracker_boundary)
     if boundary_s is not None:
         s_end = min(s_end, boundary_s)
-    return s_end
+    return min(s_end, getattr(path, "total_length", math.inf))
+
+
+def _layer_style(layer) -> tuple[str, str, float]:
+    """``(color, linestyle, linewidth)`` for a layer, by subsystem. A
+    `LineLayer` is an individual physical sensor, drawn solid; a bare
+    `CircleLayer` is the idealized surface of a whole layer with no individual
+    sensors to show, drawn dashed to mark it as a stand-in for hardware."""
+    if isinstance(layer, CaloRing):
+        return (CALO_COLOR, "-", 0.6)
+    if layer.system == "muon":
+        return (MUON_COLOR, "-", 1.4)
+    return (LAYER_COLOR, "-" if isinstance(layer, LineLayer) else "--", 1.0)
+
+
+def _draw_layers(ax, layers) -> None:
+    for layer in layers:
+        color, linestyle, linewidth = _layer_style(layer)
+        if isinstance(layer, CaloRing):
+            # a calorimeter layer has real radial depth: draw the slab it
+            # occupies, so its cells have somewhere to live
+            ax.add_patch(
+                Wedge(
+                    layer.center, layer.radius + 0.5 * layer.thickness, 0.0, 360.0,
+                    width=layer.thickness, facecolor="none", edgecolor=color,
+                    linewidth=linewidth, zorder=1,
+                )
+            )
+        elif isinstance(layer, LineLayer):
+            (x1, y1), (x2, y2) = layer.p1, layer.p2
+            ax.plot([x1, x2], [y1, y2], color=color, linestyle=linestyle, linewidth=linewidth, zorder=1)
+        elif isinstance(layer, CircleLayer):
+            cx, cy = layer.center
+            ax.add_patch(
+                MplCircle(
+                    (cx, cy), layer.radius, fill=False, edgecolor=color,
+                    linestyle=linestyle, linewidth=linewidth, zorder=1,
+                )
+            )
+
+
+def _rings_by_layer(layers) -> dict[tuple[str, int], CaloRing]:
+    return {
+        (ring.system, ring.layer_id): ring for ring in layers if isinstance(ring, CaloRing)
+    }
+
+
+def _draw_deposits(ax, deposits, layers) -> None:
+    """Each deposit as a filled wedge covering its own cell, shaded by energy
+    -- the calorimeter's actual readout granularity, rather than a point."""
+    rings = _rings_by_layer(layers)
+    if not len(deposits) or not rings:
+        return
+    cmap = plt.get_cmap(ENERGY_CMAP)
+    norm = Normalize(vmin=0.0, vmax=float(deposits["energy"].max()) or 1.0)
+
+    for _, deposit in deposits.iterrows():
+        ring = rings.get((deposit["system"], int(deposit["layer_id"])))
+        if ring is None:
+            continue
+        low, high = ring.cell_edges(int(deposit["cell_id"]))
+        # fade with energy as well as coloring by it: a shower's Gaussian tail
+        # cells carry a per-mille of its energy, and drawing them at full
+        # opacity makes every shower look several times wider than it is
+        shade = float(norm(deposit["energy"]))
+        ax.add_patch(
+            Wedge(
+                ring.center, ring.radius + 0.5 * ring.thickness,
+                math.degrees(low), math.degrees(high), width=ring.thickness,
+                facecolor=cmap(shade), alpha=0.15 + 0.85 * shade,
+                edgecolor="none", zorder=2,
+            )
+        )
+
+
+def _particle_label(particle) -> str:
+    species = particle.get("species")
+    if species is None or (isinstance(species, float) and math.isnan(species)):
+        return f"particle {int(particle['particle_id'])} (q={particle['charge']:+.0f})"
+    energy = particle.get("energy")
+    suffix = f", E={energy:.0f}" if energy is not None and not math.isnan(energy) else ""
+    return f"{species}{suffix}"
 
 
 def plot_event(
@@ -55,60 +157,148 @@ def plot_event(
     track_length: float = 100.0,
     tracker_boundary: float | None = None,
     theme: Theme | None = None,
+    deposits=None,
+    field=None,
+    world_radius: float | None = None,
+    max_path_length: float | None = None,
 ):
     """Matplotlib event display: layers, one colored trajectory per particle
-    (drawn out to its farthest hit, or ``track_length`` if it has none,
-    capped at ``tracker_boundary`` if given -- see :func:`_track_end_s`),
-    hits as outlined markers, vertices as stars.
+    (drawn out to its farthest hit or deposit, or ``track_length`` if it has
+    neither, capped at ``tracker_boundary`` if given -- see
+    :func:`_track_end_s`), hits as outlined markers, calorimeter deposits as
+    energy-shaded cells, vertices as stars.
 
     A `LineLayer` is an individual physical sensor (e.g. one module of a
-    `detector:` `mode: detailed` barrel ring, or a hand-listed `layers:`
-    plane), drawn as a solid gray line. A `CircleLayer` is the idealized bare
-    surface of a whole layer (`mode: simplified`, no individual sensors to
-    show), drawn dashed to mark it as a stand-in rather than real hardware.
+    `detector:` `mode: detailed` barrel ring, a muon chamber, or a hand-listed
+    `layers:` plane), drawn as a solid line. A `CircleLayer` is the idealized
+    bare surface of a whole layer (`mode: simplified`, no individual sensors to
+    show), drawn dashed to mark it as a stand-in rather than real hardware. A
+    `CaloRing` is drawn as the radial slab it occupies, so its cells have
+    somewhere to sit.
+
+    Pass ``field`` (a :class:`~detector2d.field.FieldRegions`) to draw the
+    piecewise trajectory the particle actually followed -- bending one way in
+    the tracker, straight through the calorimeters, bending the other way in
+    the muon system. Without it, each particle is drawn as the single arc its
+    stored ``radius`` describes.
     """
     event_particles = particles[particles["event_id"] == event_id]
     event_hits = hits[hits["event_id"] == event_id]
+    event_deposits = None if deposits is None else deposits[deposits["event_id"] == event_id]
 
     fig, ax = plt.subplots(figsize=(7, 7))
 
-    for layer in layers:
-        if isinstance(layer, LineLayer):
-            (x1, y1), (x2, y2) = layer.p1, layer.p2
-            ax.plot([x1, x2], [y1, y2], color=LAYER_COLOR, linestyle="-", linewidth=1.0, zorder=1)
-        elif isinstance(layer, CircleLayer):
-            cx, cy = layer.center
-            ax.add_patch(
-                MplCircle(
-                    (cx, cy), layer.radius, fill=False, edgecolor=LAYER_COLOR, linestyle="--", linewidth=1.0, zorder=1
-                )
-            )
+    _draw_layers(ax, layers)
+    if event_deposits is not None:
+        _draw_deposits(ax, event_deposits, layers)
 
     for i, (_, particle) in enumerate(event_particles.iterrows()):
         color = DEFAULT_TRACK_COLORS[i % len(DEFAULT_TRACK_COLORS)]
-        trajectory = trajectory_for_row(particle)
+        path = path_for_row(particle, field, world_radius, max_path_length)
         particle_hits = event_hits[event_hits["particle_id"] == particle["particle_id"]]
-        s_end = _track_end_s(trajectory, particle_hits, track_length, tracker_boundary)
-
-        s_values = np.linspace(0.0, s_end, 100)
-        xs, ys = zip(*(trajectory.position(s) for s in s_values))
-        ax.plot(
-            xs,
-            ys,
-            color=color,
-            linewidth=1.5,
-            zorder=2,
-            label=f"particle {int(particle['particle_id'])} (q={particle['charge']:+.0f})",
+        particle_deposits = (
+            None
+            if event_deposits is None
+            else event_deposits[event_deposits["particle_id"] == particle["particle_id"]]
         )
-        ax.plot(*trajectory.position(0.0), marker="*", color=VERTEX_COLOR, markersize=10, zorder=4)
+        s_end = _track_end_s(path, particle_hits, track_length, tracker_boundary, particle_deposits)
+
+        s_values = np.linspace(0.0, s_end, 300)
+        xs, ys = zip(*(path.position(s) for s in s_values))
+        ax.plot(xs, ys, color=color, linewidth=1.5, zorder=3, label=_particle_label(particle))
+        ax.plot(*path.position(0.0), marker="*", color=VERTEX_COLOR, markersize=10, zorder=5)
         if len(particle_hits):
-            ax.scatter(particle_hits["x"], particle_hits["y"], color=color, edgecolors=HIT_COLOR, s=40, zorder=3)
+            ax.scatter(
+                particle_hits["x"], particle_hits["y"],
+                color=color, edgecolors=HIT_COLOR, s=40, zorder=4,
+            )
 
     ax.set_aspect("equal")
+    summary = f"{len(event_particles)} particle(s), {len(event_hits)} hit(s)"
+    if event_deposits is not None:
+        summary += f", {len(event_deposits)} deposit(s)"
     style_axes(
         ax, theme, spatial=True,
-        title=f"event {event_id}: {len(event_particles)} particle(s), {len(event_hits)} hit(s)",
+        title=f"event {event_id}: {summary}",
         xlabel="x", ylabel="y", legend=bool(len(event_particles)),
+    )
+    fig.tight_layout()
+    return fig
+
+
+def plot_lego(
+    deposits,
+    layers,
+    event_id: int,
+    theme: Theme | None = None,
+    systems: tuple[str, ...] = ("ecal", "hcal"),
+    phi_range: tuple[float, float] | None = None,
+):
+    """The calorimeter unrolled: azimuth across, one row per sampling layer,
+    each cell shaded by its energy.
+
+    Shows the longitudinal profile (each layer dimmer than the one before it)
+    and the lateral spread (each layer wider) at a glance, which the x/y
+    display cannot.
+
+    ``phi_range`` (a ``(low, high)`` pair in degrees) zooms in on one shower.
+    Zoom in far enough and individual cell edges are drawn -- which is the
+    only way to *see* the ECAL's half-cell stagger, since at full scale a
+    256-cell ring's half cell is well under a degree.
+    """
+    event_deposits = deposits[deposits["event_id"] == event_id]
+    rings = [r for r in layers if isinstance(r, CaloRing) and r.system in systems]
+    rings.sort(key=lambda ring: ring.radius)
+    if not rings:
+        raise ValueError(f"no calorimeter rings for systems {systems!r} in this layout")
+
+    summed = event_deposits.groupby(["system", "layer_id", "cell_id"], as_index=False)["energy"].sum()
+    energies = {
+        (row["system"], int(row["layer_id"]), int(row["cell_id"])): row["energy"]
+        for _, row in summed.iterrows()
+    }
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    cmap = plt.get_cmap(ENERGY_CMAP)
+    vmax = float(summed["energy"].max()) if len(summed) else 1.0
+    norm = Normalize(vmin=0.0, vmax=vmax or 1.0)
+
+    low_deg, high_deg = phi_range if phi_range is not None else (0.0, 360.0)
+    # only outline individual cells once few enough are on screen to resolve
+    # them; otherwise the outlines merge into a solid smear
+    show_edges = {
+        ring.layer_id: (high_deg - low_deg) / math.degrees(ring.dphi) <= 80 for ring in rings
+    }
+
+    for row_index, ring in enumerate(rings):
+        for cell in range(ring.n_phi):
+            edge_low, edge_high = ring.cell_edges(cell)
+            center = math.degrees(0.5 * (edge_low + edge_high)) % 360.0
+            if not (low_deg - 1.0 <= center <= high_deg + 1.0):
+                continue
+            energy = energies.get((ring.system, ring.layer_id, cell), 0.0)
+            ax.bar(
+                x=center,
+                height=0.9,
+                width=math.degrees(edge_high - edge_low),
+                bottom=row_index + 0.05,
+                color=cmap(norm(energy)) if energy > 0 else "none",
+                edgecolor=CALO_COLOR if show_edges[ring.layer_id] else "none",
+                linewidth=0.3,
+                align="center",
+            )
+
+    ax.set_xlim(low_deg, high_deg)
+    ax.set_ylim(0.0, len(rings))
+    ax.set_yticks([i + 0.5 for i in range(len(rings))])
+    ax.set_yticklabels([f"{ring.system} L{ring.layer_id}" for ring in rings])
+    fig.colorbar(plt.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, label="energy")
+    # spatial=False: unrolling azimuth turns this into an analysis plot, and
+    # it is unreadable without its phi axis and layer labels even in `present`
+    style_axes(
+        ax, theme, spatial=False,
+        title=f"event {event_id}: calorimeter cells, unrolled in azimuth",
+        xlabel="phi [deg]",
     )
     fig.tight_layout()
     return fig
@@ -123,31 +313,59 @@ def _layer_svg(layer, dasharray: str) -> str:
     if isinstance(layer, LineLayer):
         (x1, y1), (x2, y2) = layer.p1, layer.p2
         return f'<line x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" y2="{y2:.3f}"/>'
+    if isinstance(layer, CaloRing):
+        # real hardware with radial depth, so solid, and drawn as the two
+        # bounding circles of the slab it occupies
+        cx, cy = layer.center
+        return "".join(
+            f'<circle cx="{cx:.3f}" cy="{cy:.3f}" r="{layer.radius + sign * 0.5 * layer.thickness:.3f}"/>'
+            for sign in (-1, 1)
+        )
     if isinstance(layer, CircleLayer):
         cx, cy = layer.center
         return f'<circle cx="{cx:.3f}" cy="{cy:.3f}" r="{layer.radius:.3f}" stroke-dasharray="{dasharray}"/>'
     raise TypeError(f"Unknown layer type: {type(layer)!r}")
 
 
-def _arc_path_d(trajectory: Trajectory, s_end: float) -> str:
-    """SVG path `d` for the trajectory from s=0 to s=s_end: a plain `L`ine
-    segment if straight, otherwise one or more native `A`rc commands (each
-    spanning at most pi radians, so the large-arc-flag is always 0 and the
-    sweep-flag alone fully determines the arc -- exact, no sampling)."""
-    x0, y0 = trajectory.position(0.0)
+def _arc_commands(trajectory: Trajectory, s_start: float, s_end: float) -> str:
+    """SVG path commands continuing from ``s_start`` to ``s_end`` along one
+    arc (no leading `M`): a plain `L`ine if straight, otherwise one or more
+    native `A`rc commands (each spanning at most pi radians, so the
+    large-arc-flag is always 0 and the sweep-flag alone fully determines the
+    arc -- exact, no sampling)."""
+    span = s_end - s_start
     if trajectory.is_straight:
         x1, y1 = trajectory.position(s_end)
-        return f"M {x0:.3f},{y0:.3f} L {x1:.3f},{y1:.3f}"
+        return f" L {x1:.3f},{y1:.3f}"
 
     r = abs(trajectory.radius)
     sweep = 1 if trajectory.radius > 0 else 0
     max_chunk = math.pi * r * 0.999
-    n_chunks = max(1, math.ceil(abs(s_end) / max_chunk)) if s_end else 1
+    n_chunks = max(1, math.ceil(abs(span) / max_chunk)) if span else 1
 
-    d = f"M {x0:.3f},{y0:.3f}"
+    commands = ""
     for i in range(1, n_chunks + 1):
-        x, y = trajectory.position(s_end * i / n_chunks)
-        d += f" A {r:.3f},{r:.3f} 0 0,{sweep} {x:.3f},{y:.3f}"
+        x, y = trajectory.position(s_start + span * i / n_chunks)
+        commands += f" A {r:.3f},{r:.3f} 0 0,{sweep} {x:.3f},{y:.3f}"
+    return commands
+
+
+def _arc_path_d(path, s_end: float) -> str:
+    """SVG path `d` from s=0 to s=s_end. A segmented path emits one run of
+    commands per segment, so a track that bends, straightens, then bends the
+    other way stays a single exact `<path>` -- no polyline sampling anywhere."""
+    x0, y0 = path.position(0.0)
+    d = f"M {x0:.3f},{y0:.3f}"
+
+    segments = getattr(path, "segments", None)
+    if segments is None:
+        return d + _arc_commands(path, 0.0, s_end)
+
+    for segment in segments:
+        if segment.s_start >= s_end:
+            break
+        stop = min(segment.s_end, s_end)
+        d += _arc_commands(segment.trajectory, 0.0, stop - segment.s_start)
     return d
 
 
@@ -173,6 +391,9 @@ def export_svg(
     draw_vertices: bool = True,
     extra_svg: tuple[str, ...] = (),
     tracker_boundary: float | None = None,
+    field=None,
+    world_radius: float | None = None,
+    max_path_length: float | None = None,
 ) -> None:
     """Write a self-contained SVG of a detector layout + event to ``path``.
 
@@ -203,11 +424,12 @@ def export_svg(
     vertex_points = []
     for i, (_, particle) in enumerate(particles.iterrows()):
         color = track_colors[i % len(track_colors)]
-        trajectory = trajectory_for_row(particle)
+        # `track`, not `path` -- `path` is this function's output file argument
+        track = path_for_row(particle, field, world_radius, max_path_length)
         particle_hits = hits[hits["particle_id"] == particle["particle_id"]]
-        s_end = _track_end_s(trajectory, particle_hits, default_track_length, tracker_boundary)
-        parts.append(f'<path d="{_arc_path_d(trajectory, s_end)}" stroke="{color}"/>')
-        vertex_points.append(trajectory.position(0.0))
+        s_end = _track_end_s(track, particle_hits, default_track_length, tracker_boundary)
+        parts.append(f'<path d="{_arc_path_d(track, s_end)}" stroke="{color}"/>')
+        vertex_points.append(track.position(0.0))
     parts.append("</g>")
 
     parts.append(f'<g id="hits" fill="{hit_color}" stroke="none">')

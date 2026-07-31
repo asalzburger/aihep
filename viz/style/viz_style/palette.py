@@ -13,6 +13,10 @@ Reconciling genuinely different hexes that play the same semantic role
 (e.g. `TRUTH` vs. `VERTEX`, or `CLASS_COLORS` vs. `CATEGORICAL_OKABE_ITO`)
 into one truly canonical set is a real visual change and is deliberately
 not done here -- a separately-scoped follow-up.
+
+`CALO` and `MUON` are the exception to the "verbatim lift" rule above: they
+are new, added with the calorimeter/muon subsystems, and defined here rather
+than inline so they follow the same rule as everything else.
 """
 
 from __future__ import annotations
@@ -30,6 +34,8 @@ CLUSTER_DIGITAL = "#E67E22"    # was sensor.vis.CENTROID_TYPE_COLOR["digital"]
 DIGITAL_ON = "#C0392B"         # was sensor.vis.DIGITAL_ON_COLOR
 GRID = "0.85"                  # was sensor.vis.GRID_COLOR
 LAYER = "#999999"              # was tracksim2d.vis.LAYER_COLOR
+CALO = "#7F7F7F"               # calorimeter ring outlines (tracksim2d.vis)
+MUON = "#5B6B8C"               # muon-chamber planes (tracksim2d.vis)
 HIT = "#000000"                # was tracksim2d.vis.HIT_COLOR / hopfield_tracking.vis.HIT_COLOR
 VERTEX = "#009E73"             # was tracksim2d.vis.VERTEX_COLOR
 EDGE = "#333333"               # was graphs.vis.EDGE_COLOR

@@ -4,14 +4,25 @@ loaded from YAML by a downstream package) into the flat list of
 objects that :mod:`detector2d.intersect` (and simulation code built on top of
 it, e.g. `tracksim2d`) consume.
 
-Two mutually exclusive ways to describe a layout, both handled by
-:func:`build_layers_from_raw`:
+The *tracker* is described in one of two mutually exclusive ways:
 
 - ``layers:`` -- a flat, hand-listed list of line/circle layer specs
   (:func:`parse_layer`).
 - ``detector:`` -- a higher-level cylindrical/barrel spec
   (:class:`DetectorConfig`) that expands into the same flat layer list via
   :mod:`detector2d.barrel` (:func:`build_detector_layers`).
+
+Two further, independent and optional blocks describe what sits outside it,
+and simply append to whichever of the above produced the tracker:
+
+- ``calorimeter:`` -- named calorimeter stacks (``ecal``, ``hcal``, ...),
+  expanded via :mod:`detector2d.calorimeter` (:func:`build_calorimeter_layers`).
+- ``muon:`` -- polygonal triplet stations, expanded via
+  :mod:`detector2d.polygon` (:func:`build_muon_layers`).
+
+:func:`build_layers_from_raw` assembles all of them into one flat list. A
+config with none of these keys yields ``[]``; a config with only
+``layers:``/``detector:`` yields exactly what it always did.
 """
 
 from __future__ import annotations
@@ -21,9 +32,12 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 from .barrel import build_barrel_circle, build_barrel_modules
+from .calorimeter import CaloRing, CaloStackConfig, build_calo_stack_from_config
+from .field import DEFAULT_K, FieldRegion, FieldRegions
 from .geometry import CircleLayer, LineLayer
+from .polygon import build_muon_system
 
-Layer = LineLayer | CircleLayer
+Layer = LineLayer | CircleLayer | CaloRing
 
 
 @dataclass
@@ -67,9 +81,14 @@ def _merge_dataclass(cls: type, data: dict[str, Any] | None):
 
 def parse_layer(spec: dict[str, Any]) -> Layer:
     kind = spec["kind"]
+    system = spec.get("system", "tracker")
     if kind == "line":
         return LineLayer(
-            layer_id=spec["layer_id"], p1=tuple(spec["p1"]), p2=tuple(spec["p2"]), pitch=spec.get("pitch")
+            layer_id=spec["layer_id"],
+            p1=tuple(spec["p1"]),
+            p2=tuple(spec["p2"]),
+            pitch=spec.get("pitch"),
+            system=system,
         )
     if kind == "circle":
         return CircleLayer(
@@ -77,6 +96,7 @@ def parse_layer(spec: dict[str, Any]) -> Layer:
             center=tuple(spec["center"]),
             radius=spec["radius"],
             pitch=spec.get("pitch"),
+            system=system,
         )
     raise ValueError(f"Unknown layer kind: {kind!r}")
 
@@ -122,18 +142,111 @@ def build_detector_layers(detector: DetectorConfig) -> list[Layer]:
     return layers
 
 
+@dataclass
+class MuonConfig:
+    """A polygonal muon spectrometer: ``n_stations`` equally spaced stations,
+    each an ``n_sides``-gon whose every side is an ``n_planes`` triplet -- see
+    :func:`detector2d.polygon.build_muon_system`."""
+
+    layer_id_base: int = 300
+    apothem_inner: float = 520.0
+    station_spacing: float = 100.0
+    n_stations: int = 3
+    n_planes: int = 3
+    n_sides: int = 8
+    triplet_gap: float = 8.0
+    phi_offset_deg: float = 0.0
+    pitch: float | None = None
+    station_id_step: int = 10
+    system: str = "muon"
+
+
+def parse_calorimeter_config(raw: dict[str, Any]) -> list[CaloStackConfig]:
+    """Parse a ``calorimeter:`` block -- a mapping of stack name (``ecal``,
+    ``hcal``, ...) to its :class:`~detector2d.calorimeter.CaloStackConfig`
+    fields. The key doubles as the stack's ``system`` tag unless the spec
+    overrides it."""
+    stacks = []
+    for name, spec in raw.items():
+        merged = _merge_dataclass(CaloStackConfig, {"system": name, **(spec or {})})
+        stacks.append(merged)
+    return stacks
+
+
+def build_calorimeter_layers(stacks: list[CaloStackConfig]) -> list[Layer]:
+    layers: list[Layer] = []
+    for stack in stacks:
+        layers.extend(build_calo_stack_from_config(stack))
+    return layers
+
+
+def parse_muon_config(raw: dict[str, Any]) -> MuonConfig:
+    return _merge_dataclass(MuonConfig, raw)
+
+
+def build_muon_layers(muon: MuonConfig) -> list[Layer]:
+    return list(
+        build_muon_system(
+            layer_id_base=muon.layer_id_base,
+            apothem_inner=muon.apothem_inner,
+            station_spacing=muon.station_spacing,
+            n_stations=muon.n_stations,
+            n_planes=muon.n_planes,
+            n_sides=muon.n_sides,
+            triplet_gap=muon.triplet_gap,
+            phi_offset=math.radians(muon.phi_offset_deg),
+            pitch=muon.pitch,
+            system=muon.system,
+            station_id_step=muon.station_id_step,
+        )
+    )
+
+
+def parse_field_regions(raw: dict[str, Any] | None) -> FieldRegions:
+    """Parse a ``field:`` block into :class:`~detector2d.field.FieldRegions`.
+
+    Two forms. The piecewise one, inside-out, the last entry's ``r_max``
+    omitted (or null) for "everything beyond"::
+
+        field:
+          k: 0.2998
+          regions:
+            - {r_max: 210.0, bz:  2.0}   # tracker: strong
+            - {r_max: 480.0, bz:  0.0}   # calorimeters: no field
+            - {bz: -1.0}                 # muon system: half, reversed
+
+    and the original scalar form, ``field: {bz: 1.0}``, which still means one
+    constant field everywhere -- it parses to a single unbounded region.
+    """
+    raw = raw or {}
+    k = raw.get("k", DEFAULT_K)
+    if "regions" in raw:
+        regions = tuple(
+            FieldRegion(r_max=spec.get("r_max"), bz=spec.get("bz", 0.0)) for spec in raw["regions"]
+        )
+        return FieldRegions(regions=regions, k=k)
+    return FieldRegions.constant(bz=raw.get("bz", 0.0), k=k)
+
+
 def build_layers_from_raw(raw: dict[str, Any]) -> list[Layer]:
-    """Build the flat layer list from a config dict's ``detector:``/
-    ``layers:`` keys (mutually exclusive -- pick one). ``raw`` is the
-    top-level config dict (e.g. parsed from YAML by the caller), not just
-    the ``detector:`` sub-dict. Returns ``[]`` if neither key is present."""
+    """Build the flat layer list from a config dict's ``detector:``/``layers:``
+    (mutually exclusive -- pick one), plus the optional ``calorimeter:`` and
+    ``muon:`` blocks, in that inside-out order. ``raw`` is the top-level
+    config dict (e.g. parsed from YAML by the caller), not any one sub-dict.
+    Returns ``[]`` if none of the keys is present."""
     if "detector" in raw and "layers" in raw:
         raise ValueError(
             "config has both 'detector' and 'layers' -- these are mutually exclusive ways to "
             "specify the detector layout, pick one"
         )
+
+    layers: list[Layer] = []
     if "detector" in raw:
-        return build_detector_layers(parse_detector_config(raw["detector"]))
-    if "layers" in raw:
-        return [parse_layer(spec) for spec in raw["layers"]]
-    return []
+        layers.extend(build_detector_layers(parse_detector_config(raw["detector"])))
+    elif "layers" in raw:
+        layers.extend(parse_layer(spec) for spec in raw["layers"])
+    if "calorimeter" in raw:
+        layers.extend(build_calorimeter_layers(parse_calorimeter_config(raw["calorimeter"])))
+    if "muon" in raw:
+        layers.extend(build_muon_layers(parse_muon_config(raw["muon"])))
+    return layers

@@ -20,12 +20,15 @@ class LineLayer:
 
     ``pitch``, if set, is the segmentation cell size along the line (distance
     from ``p1``), used by the clustering package to digitize hits into cells.
+    ``system`` names the subsystem this layer belongs to (see
+    :class:`CircleLayer`).
     """
 
     layer_id: int
     p1: tuple[float, float]
     p2: tuple[float, float]
     pitch: float | None = None
+    system: str = "tracker"
 
     @property
     def direction(self) -> tuple[float, float]:
@@ -44,12 +47,19 @@ class CircleLayer:
 
     ``pitch``, if set, is the segmentation cell size (arc length) along the
     circle, used by the clustering package to digitize hits into cells.
+
+    ``system`` names the subsystem this layer belongs to -- ``"tracker"``
+    (the default, so every pre-existing layout keeps its meaning),
+    ``"ecal"``, ``"hcal"``, ``"muon"``. Simulation code dispatches on it (a
+    calorimeter layer collects energy, a tracker/muon layer records a
+    position hit) rather than on ``layer_id`` ranges.
     """
 
     layer_id: int
     center: tuple[float, float]
     radius: float
     pitch: float | None = None
+    system: str = "tracker"
 
 
 @dataclass(frozen=True)

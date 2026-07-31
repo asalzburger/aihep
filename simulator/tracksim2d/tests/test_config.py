@@ -1,11 +1,14 @@
 from pathlib import Path
 
 import pytest
+from detector2d.calorimeter import CaloRing
 from detector2d.geometry import CircleLayer, LineLayer
 from tracksim2d.config import SimConfig, load_config
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "default.yaml"
-BARREL6_CONFIG_PATH = Path(__file__).resolve().parent.parent / "configs" / "barrel6.yaml"
+CONFIGS = Path(__file__).resolve().parent.parent / "configs"
+CONFIG_PATH = CONFIGS / "default.yaml"
+BARREL6_CONFIG_PATH = CONFIGS / "barrel6.yaml"
+FULL_DETECTOR_CONFIG_PATH = CONFIGS / "full_detector.yaml"
 
 
 def test_defaults_with_no_config():
@@ -53,6 +56,74 @@ def test_load_barrel6_yaml_detailed_builds_tilted_module_rings():
     # precision layers (0-2) use the precision module size/pitch, outer (3-5) the outer one
     assert all(layer.pitch == 0.1 for layer in config.layers if layer.layer_id in (0, 1, 2))
     assert all(layer.pitch == 0.5 for layer in config.layers if layer.layer_id in (3, 4, 5))
+
+
+def test_a_tracker_only_config_is_unaffected_by_the_calorimeter_extension():
+    """No `calorimeter:`/`muon:`/`field.regions:` keys means exactly the old
+    behaviour: no calo rings, no piecewise field, no response model."""
+    config = load_config(BARREL6_CONFIG_PATH)
+    assert not any(isinstance(layer, CaloRing) for layer in config.layers)
+    assert config.field_regions is None
+    assert config.response is None
+    assert config.magnetic_field.bz == 1.0  # the scalar `field: {bz: 1.0}` form
+
+
+def test_load_full_detector_yaml_builds_every_subsystem():
+    config = load_config(FULL_DETECTOR_CONFIG_PATH)
+    by_system = {}
+    for layer in config.layers:
+        by_system.setdefault(layer.system, []).append(layer)
+
+    assert set(by_system) == {"tracker", "ecal", "hcal", "muon"}
+    assert len(by_system["ecal"]) == 3
+    assert len(by_system["hcal"]) == 2
+    assert len(by_system["muon"]) == 3 * 3 * 8  # stations x planes x sides
+    assert all(isinstance(layer, CaloRing) for layer in by_system["ecal"] + by_system["hcal"])
+    assert [ring.radius for ring in by_system["ecal"]] == [225.0, 255.0, 285.0]
+    assert [ring.n_phi for ring in by_system["ecal"]] == [256, 256, 256]
+    assert [ring.n_phi for ring in by_system["hcal"]] == [64, 64]
+
+
+def test_full_detector_yaml_staggers_the_middle_ecal_layer_by_half_a_cell():
+    config = load_config(FULL_DETECTOR_CONFIG_PATH)
+    ecal = sorted(
+        (l for l in config.layers if l.system == "ecal"), key=lambda ring: ring.radius
+    )
+    assert ecal[0].phi_offset == 0.0
+    assert ecal[1].phi_offset == pytest.approx(0.5 * ecal[1].dphi)
+    assert ecal[2].phi_offset == 0.0
+
+
+def test_full_detector_yaml_field_is_strong_then_zero_then_reversed():
+    config = load_config(FULL_DETECTOR_CONFIG_PATH)
+    regions = config.field_regions
+    assert regions is not None
+    assert [r.bz for r in regions.regions] == [2.0, 0.0, -1.0]
+    assert regions.bz_at(100.0) == 2.0  # tracker
+    assert regions.bz_at(350.0) == 0.0  # calorimeters
+    assert regions.bz_at(600.0) == -1.0  # muon system: half strength, reversed
+    # the particles table's nominal radius uses the innermost field
+    assert config.magnetic_field.bz == 2.0
+
+
+def test_full_detector_yaml_loads_the_response_model_and_gun_species():
+    config = load_config(FULL_DETECTOR_CONFIG_PATH)
+    assert config.response.em.layer_fractions == (0.60, 0.28, 0.12)
+    assert config.response.hadron.layer_fractions == (0.65, 0.35)
+    assert config.response.mip_energy == {"ecal": 0.3, "hcal": 0.8}
+    assert config.response.stochastic == {"ecal": 0.10, "hcal": 0.50}
+    assert "mu+" in config.gun.species and "photon" in config.gun.species
+    assert config.world_radius == 800.0
+    assert config.max_path_length == 4000.0
+
+
+def test_scalar_field_still_parses_as_one_constant_field(tmp_path):
+    config_path = tmp_path / "scalar_field.yaml"
+    config_path.write_text("field:\n  bz: 1.5\n  k: 0.3\n")
+    config = load_config(config_path)
+    assert config.magnetic_field.bz == 1.5
+    assert config.magnetic_field.k == 0.3
+    assert config.field_regions is None  # not a piecewise map
 
 
 def test_detector_and_flat_layers_are_mutually_exclusive(tmp_path):
