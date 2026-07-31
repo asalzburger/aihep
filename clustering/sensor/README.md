@@ -16,7 +16,7 @@ The `sensor` package is split into five submodules:
 | `sensor.sim` | Everything that produces an event: detector/particle configuration (`config.py`), track/pixel-grid geometry (`geometry.py`), particle generation (`simulate.py`), digitization — diffusion/noise/threshold (`digitize.py`), and connected-component cluster finding with a readout threshold and parallel charge-weighted/digital centroids (`clustering.py`). |
 | `sensor.io` | Read/write `hits`/`clusters`/`truth`/`contributions` tables as CSV or Apache Arrow (the serialization itself lives in [`clustering/utils`](../utils), shared with `clustering/tracker`). |
 | `sensor.analysis` | Reconstruction-quality analysis: traces clusters back to the truth particle(s) that produced them (`cluster_purity`) and computes reconstructed-minus-true position residuals for both centroid definitions, matched exactly by charge contribution where possible. |
-| `sensor.vis` | Matplotlib visualization: single-event display, cluster summary plots, and residual plots. |
+| `sensor.vis` | Matplotlib visualization: single-event display (2D pixel grid or a presenter-only 3D slab-crossing illustration), cluster summary plots, and residual plots. |
 
 `sensor.cli` ties these together into the `run`/`visualize`/`analyse`
 commands described below; it's not one of the five core submodules, just the
@@ -81,14 +81,18 @@ truth tracks, and should be the same config the run used.
 
 The plot shows: hit pixels colored by charge (yellow = low, red = high),
 each cluster's bounding box outlined in red, and the truth charge-collection
-track (drift-corrected) for every particle in blue.
+track (drift-corrected) for every particle in blue, marked with a dot at
+its entry point and a filled triangle at its exit point.
 
 Extra flags:
 
 - `--zoom NX NY` — instead of the full sensor, show only an `NX x NY` pixel
-  window centered on the event's largest cluster (falls back to the grid
-  center if the event has no clusters). Useful once the grid is much bigger
-  than a typical cluster (a couple pixels on a 200x200 grid).
+  window centered as closely as possible on the event's largest cluster's
+  actual pixel footprint (falls back to the grid center if the event has no
+  clusters) -- not a charge-weighted centroid, which would skew the window
+  off-center toward whichever pixel happens to be charge-heavier. Useful
+  once the grid is much bigger than a typical cluster (a couple pixels on a
+  200x200 grid).
 - `--grid` — overlay light gray lines at every pixel boundary, in view.
 - `--readout-threshold` (default `0.15`) — pixels with charge at or below
   this are treated as not read out: dropped from the display and from
@@ -103,6 +107,9 @@ Extra flags:
   centroid(s) to mark per cluster (diamond = charge-weighted, square =
   digital), alongside each truth particle's true position (star). Pass
   both to compare them directly on the same event.
+- `--style {print,present}` (default `print`) — `print` is the look above
+  (titles, axis labels, legend); `present` drops all of that, for putting
+  the figure straight into a slide. See [`viz/style`](../../viz/style).
 
 ```bash
 .venv/bin/python -m sensor.cli visualize \
@@ -119,6 +126,39 @@ Extra flags:
   --output-dir out/ --format arrow --event-id 0 \
   --zoom 12 12 --grid --type charge digital --save event0_centroids.png
 ```
+
+### 3D view
+
+`--view 3d` swaps the pixel-grid display above for a presenter-only
+illustration of the event's truth particle(s) as straight lines crossing a
+somewhat transparent slab (entry face at z=0 to the readout face at
+z=`thickness_um`, marked with a dot at entry and a filled triangle at exit,
+same convention as the 2D view) — meant to show at a glance *why* a tilted
+track leaves charge across more than one pixel. Every hit pixel is drawn
+as a solid 3D block spanning the slab's full thickness (colored by charge,
+same colormap as the 2D view, but with no colorbar) — the actual silicon
+column the track traversed. Each block's own top face sits on the readout
+surface, so together they read as the 2D charge/cluster image projected
+onto the top of the slab; a very light pixel-boundary grid covers the rest
+of that top surface for context. No cluster boxes, reconstructed
+centroids, title/axes, or legend; it always renders this way (there's no
+`--style` for it):
+
+```bash
+.venv/bin/python -m sensor.cli visualize \
+  --output-dir out/ --format arrow --event-id 0 \
+  --view 3d --save event0_3d.png
+```
+
+`--zoom NX NY` still applies (default `20 20` pixels, centered as closely
+as possible on the event's largest cluster's actual pixel footprint, same
+as the 2D view -- falling back to the truth particles' mean entry point
+only if there are no hits above `--readout-threshold`) — the full sensor
+is many times wider/taller than it is thick, so an unzoomed box would
+render as a flat pancake with no visible tilt. `--readout-threshold` still
+applies too (same convention as the 2D view: pixels with charge at or below
+this aren't marked as hit). `--grid`/`--digital`/`--type` are 2D-only and
+have no effect on `--view 3d`.
 
 ### Readout threshold
 
