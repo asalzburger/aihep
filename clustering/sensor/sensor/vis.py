@@ -12,8 +12,9 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap
-from matplotlib.patches import Patch, Rectangle
+from matplotlib.patches import Patch
 from viz_style import Theme, get_theme, palette
 from viz_style.mpl import style_axes
 
@@ -21,6 +22,7 @@ from .analysis import CENTROID_COLUMNS, compute_residuals
 from .sim import DetectorConfig, charge_endpoints, true_center_position
 
 CLUSTER_COLOR = palette.CLUSTER
+CLUSTER_OUTLINE_COLOR = "black"
 TRUTH_COLOR = palette.TRUTH
 CHARGE_CMAP = palette.SEQUENTIAL_CHARGE_CMAP  # sequential: low charge yellow -> high charge red
 DIGITAL_ON_COLOR = palette.DIGITAL_ON
@@ -59,6 +61,31 @@ def _zoom_pixel_bounds(
     ix_lo, ix_hi = _clip_window(center_ix, nx, detector.n_pixels_x)
     iy_lo, iy_hi = _clip_window(center_iy, ny, detector.n_pixels_y)
     return ix_lo, ix_hi, iy_lo, iy_hi
+
+
+def _cluster_outline_segments(
+    ix: list[int], iy: list[int], pitch_x: float, pitch_y: float
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """Boundary edges of the union of pixel squares in a cluster.
+
+    An edge between two grid cells is only kept if exactly one side is a
+    cluster pixel, so the result traces the true (possibly concave or
+    donut-shaped) outline rather than the axis-aligned bounding box.
+    """
+    pixels = set(zip(ix, iy))
+    segments = []
+    for px, py in pixels:
+        x0, x1 = px * pitch_x, (px + 1) * pitch_x
+        y0, y1 = py * pitch_y, (py + 1) * pitch_y
+        if (px - 1, py) not in pixels:
+            segments.append(((x0, y0), (x0, y1)))
+        if (px + 1, py) not in pixels:
+            segments.append(((x1, y0), (x1, y1)))
+        if (px, py - 1) not in pixels:
+            segments.append(((x0, y0), (x1, y0)))
+        if (px, py + 1) not in pixels:
+            segments.append(((x0, y1), (x1, y1)))
+    return segments
 
 
 def plot_event(
@@ -131,11 +158,8 @@ def plot_event(
         ax.hlines(ys_in_view, x_view[0], x_view[1], color=GRID_COLOR, linewidth=0.6, zorder=1)
 
     for _, ix, iy in event_hits.groupby("cluster_id")[["ix", "iy"]].agg(list).itertuples():
-        x0, x1 = min(ix) * detector.pitch_x_um, (max(ix) + 1) * detector.pitch_x_um
-        y0, y1 = min(iy) * detector.pitch_y_um, (max(iy) + 1) * detector.pitch_y_um
-        ax.add_patch(
-            Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False, edgecolor=CLUSTER_COLOR, linewidth=2)
-        )
+        segments = _cluster_outline_segments(ix, iy, detector.pitch_x_um, detector.pitch_y_um)
+        ax.add_collection(LineCollection(segments, colors=CLUSTER_OUTLINE_COLOR, linewidths=2, zorder=3))
 
     for _, cluster_row in event_clusters.iterrows():
         for centroid_type in centroid_types:
@@ -178,7 +202,7 @@ def plot_event(
     )
 
     handles = [
-        plt.Line2D([0], [0], color=CLUSTER_COLOR, linewidth=2, label="cluster bounding box"),
+        plt.Line2D([0], [0], color=CLUSTER_OUTLINE_COLOR, linewidth=2, label="cluster outline"),
         plt.Line2D([0], [0], color=TRUTH_COLOR, linewidth=1.5, marker="o", markersize=4, label="truth track"),
         plt.Line2D(
             [0], [0], color=TRUTH_COLOR, marker=TRUE_POSITION_MARKER, markersize=9, linewidth=0,
