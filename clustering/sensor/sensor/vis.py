@@ -30,7 +30,7 @@ TRUTH_COLOR = palette.TRUTH
 CHARGE_CMAP = palette.SEQUENTIAL_CHARGE_CMAP  # sequential: low charge yellow -> high charge red
 DIGITAL_ON_COLOR = palette.DIGITAL_ON
 GRID_COLOR = palette.GRID
-SENSOR_BOX_COLOR = palette.LAYER  # same structural gray as detector2d/tracksim2d's own layer drawing
+SENSOR_BOX_COLOR = palette.LAYER  # same structural gray as detector2d/detectorsim2d's own layer drawing
 DEFAULT_READOUT_THRESHOLD = 0.15  # pixels with charge <= this are not "read out"
 DEFAULT_3D_ZOOM = (20, 20)  # pixel window around the event's tracks, for a proportioned slab illustration
 

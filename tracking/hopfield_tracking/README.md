@@ -99,7 +99,7 @@ up front the way the paper's own figures show.
 `build_segments(x, y, r_c, layer_ids=...)` excludes any pair sharing a
 layer id; `cli.run` picks this up automatically from a `layer_id` column if
 the hits table has one (see `tracking/denby/python/run_hopfield_on_denby_event.py`,
-which now carries `layer_id` through from `tracksim2d`'s hits table for
+which now carries `layer_id` through from `detectorsim2d`'s hits table for
 exactly this reason). It's optional (`layer_ids=None` keeps the old pure-
 distance behavior) since this package otherwise only ever needs `(x, y)`.
 
@@ -148,7 +148,7 @@ python3 -m venv .venv
 .venv/bin/pip install -e ../../viz/style -e . -r requirements.txt
 ```
 
-No dependency on `detector2d`/`tracksim2d` -- just `numpy`/`pandas`/
+No dependency on `detector2d`/`detectorsim2d` -- just `numpy`/`pandas`/
 `matplotlib`, plus `viz_style` (a sibling path package, not on PyPI,
 installed explicitly rather than listed as a dependency) for the
 print/present theming -- since this package only ever sees a plain hits

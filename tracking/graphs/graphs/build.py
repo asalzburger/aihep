@@ -1,10 +1,10 @@
 """Build a candidate track graph (nodes = hits, edges = candidate hit-to-hit
-connections) from a `tracksim2d` hits table, according to a chosen
+connections) from a `detectorsim2d` hits table, according to a chosen
 `~graphs.prescription.Prescription`.
 
 Works on hits from *any* `detector2d` layout -- a flat plane stack (like the
 Denby example, `tracking/denby`) or a concentric barrel (like
-`simulator/tracksim2d/configs/barrel6.yaml`) -- without caring which: only
+`simulator/detectorsim2d/configs/barrel6.yaml`) -- without caring which: only
 `x`, `y`, `layer_id`, and `event_id` from the hits table are ever used,
 never the layer geometry itself.
 """
@@ -104,7 +104,7 @@ def _candidate_pairs(event_hits: pd.DataFrame, prescription: Prescription) -> li
 
 
 def build_edges(hits: pd.DataFrame, prescription: Prescription) -> pd.DataFrame:
-    """Build just the edges table for ``hits`` (a `tracksim2d` hits table,
+    """Build just the edges table for ``hits`` (a `detectorsim2d` hits table,
     one or more events) under ``prescription``. Edges are only ever formed
     within a single event -- hits from different events never connect."""
     rows: list[dict] = []

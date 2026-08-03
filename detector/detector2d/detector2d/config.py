@@ -2,7 +2,7 @@
 loaded from YAML by a downstream package) into the flat list of
 :class:`~detector2d.geometry.LineLayer`/:class:`~detector2d.geometry.CircleLayer`
 objects that :mod:`detector2d.intersect` (and simulation code built on top of
-it, e.g. `tracksim2d`) consume.
+it, e.g. `detectorsim2d`) consume.
 
 The *tracker* is described in one of two mutually exclusive ways:
 

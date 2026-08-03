@@ -6,9 +6,9 @@ import pytest
 from detector2d.barrel import build_barrel_modules, module_reach
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 
-from tracksim2d.config import FieldConfig, ParticleGunConfig, SimConfig
-from tracksim2d.edm import PARTICLES_COLUMNS
-from tracksim2d.simulate import boundary_crossing_s, hits_for_particles, sample_particles, simulate_events
+from detectorsim2d.config import FieldConfig, ParticleGunConfig, SimConfig
+from detectorsim2d.edm import PARTICLES_COLUMNS
+from detectorsim2d.simulate import boundary_crossing_s, hits_for_particles, sample_particles, simulate_events
 
 
 def _particle_row(**overrides):

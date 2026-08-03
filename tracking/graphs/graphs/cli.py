@@ -1,11 +1,11 @@
-"""CLI entry point: build a candidate track graph from a `tracksim2d` run's
+"""CLI entry point: build a candidate track graph from a `detectorsim2d` run's
 hits, or visualize one on top of that run's event display.
 
-    python -m graphs.cli build --run-dir ../../simulator/tracksim2d/out \\
+    python -m graphs.cli build --run-dir ../../simulator/detectorsim2d/out \\
         --format arrow --config configs/connection_rules.yaml --output-dir out/
 
-    python -m graphs.cli visualize --run-dir ../../simulator/tracksim2d/out \\
-        --format arrow --sim-config ../../simulator/tracksim2d/configs/barrel6.yaml \\
+    python -m graphs.cli visualize --run-dir ../../simulator/detectorsim2d/out \\
+        --format arrow --sim-config ../../simulator/detectorsim2d/configs/barrel6.yaml \\
         --graph-config configs/connection_rules.yaml --event-id 0 --save graph0.png
 """
 
@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import argparse
 
-from tracksim2d.config import load_config as load_sim_config
-from tracksim2d.io import read_run
+from detectorsim2d.config import load_config as load_sim_config
+from detectorsim2d.io import read_run
 
 from .build import build_edges
 from .config import load_config as load_graph_config
@@ -75,8 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="graphs", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    build_p = subparsers.add_parser("build", help="Build a candidate track graph from a tracksim2d run's hits")
-    build_p.add_argument("--run-dir", required=True, help="Directory written by tracksim2d's `run` (particles/hits)")
+    build_p = subparsers.add_parser("build", help="Build a candidate track graph from a detectorsim2d run's hits")
+    build_p.add_argument("--run-dir", required=True, help="Directory written by detectorsim2d's `run` (particles/hits)")
     build_p.add_argument("--format", choices=["csv", "arrow"], default="csv")
     build_p.add_argument("--config", default=None, help="YAML prescription config (defaults to fully_connected)")
     build_p.add_argument("--output-dir", default="out", help="Directory to write edges.<format> into")
@@ -88,9 +88,9 @@ def build_parser() -> argparse.ArgumentParser:
     build_p.set_defaults(func=_cmd_build)
 
     viz_p = subparsers.add_parser("visualize", help="Plot a single event's graph on top of its simulation display")
-    viz_p.add_argument("--run-dir", required=True, help="Directory written by tracksim2d's `run` (particles/hits)")
+    viz_p.add_argument("--run-dir", required=True, help="Directory written by detectorsim2d's `run` (particles/hits)")
     viz_p.add_argument("--format", choices=["csv", "arrow"], default="csv")
-    viz_p.add_argument("--sim-config", default=None, help="tracksim2d YAML config used for the run (for the layout)")
+    viz_p.add_argument("--sim-config", default=None, help="detectorsim2d YAML config used for the run (for the layout)")
     viz_p.add_argument("--graph-config", default=None, help="YAML prescription config (defaults to fully_connected)")
     viz_p.add_argument("--event-id", type=int, default=0)
     viz_p.add_argument(

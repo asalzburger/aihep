@@ -2,7 +2,7 @@
 
 Geometry and trajectory-intersection primitives for a 2D (x, y only) particle
 detector. No pandas/IO here on purpose — this package is the pure-math layer
-that `simulator/tracksim2d` builds events on top of.
+that `simulator/detectorsim2d` builds events on top of.
 
 In 2D, a 3D "plane" detector becomes a straight line segment, and a 3D barrel
 "cylinder" becomes a circle. A charged particle in a constant field pointing
@@ -95,7 +95,7 @@ A single `CircleLayer` only ever reports the nearer of these two via
 `first_intersection`; decomposing a layer into many `LineLayer` modules
 (as `build_barrel_modules` does) surfaces *both*, since each module object is
 tested independently. If you only want to see the overlap-driven kind, look
-at hits close together in arc length (`path_length` in `tracksim2d`'s
+at hits close together in arc length (`path_length` in `detectorsim2d`'s
 `hits` table), not just "more than one hit on this layer_id".
 
 ## Calorimeter layers
@@ -203,9 +203,9 @@ detector.
 ## Describing a detector layout from a config dict
 
 `detector2d/config.py` is the detector-*description* layer: it turns a plain
-dict (typically loaded from YAML by a downstream package like `tracksim2d`)
+dict (typically loaded from YAML by a downstream package like `detectorsim2d`)
 into the flat `LineLayer`/`CircleLayer` list above. It knows nothing about
-simulation (particles, fields, IO) -- that's `tracksim2d`'s job; this module
+simulation (particles, fields, IO) -- that's `detectorsim2d`'s job; this module
 only builds the layout.
 
 Two mutually exclusive forms, both handled by `build_layers_from_raw(raw)`:
@@ -234,7 +234,7 @@ detector:
 ```
 
 a higher-level `DetectorConfig` that expands into the same flat layer list
-via `build_detector_layers` (see `simulator/tracksim2d/configs/barrel6.yaml`
+via `build_detector_layers` (see `simulator/detectorsim2d/configs/barrel6.yaml`
 for a full working example). `mode: simplified` expands each layer to a bare
 `CircleLayer`; `mode: detailed` expands it into a ring of tilted `LineLayer`
 modules via `build_barrel_modules` (module size/tilt/overlap looked up per

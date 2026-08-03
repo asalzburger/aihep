@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from detector2d.calorimeter import CaloRing
 from detector2d.geometry import CircleLayer, LineLayer
-from tracksim2d.config import SimConfig, load_config
+from detectorsim2d.config import SimConfig, load_config
 
 CONFIGS = Path(__file__).resolve().parent.parent / "configs"
 CONFIG_PATH = CONFIGS / "default.yaml"
@@ -45,7 +45,7 @@ def test_load_barrel6_yaml_detailed_builds_tilted_module_rings():
     config = load_config(BARREL6_CONFIG_PATH)
     # every module is a LineLayer; layer_ids 0-5 each appear many times (one
     # per module in that layer's ring), not once each -- this exercises
-    # tracksim2d's delegation to detector2d.config.build_layers_from_raw for
+    # detectorsim2d's delegation to detector2d.config.build_layers_from_raw for
     # the `detector:` form (see detector2d's own tests for the parsing unit
     # tests).
     assert all(isinstance(layer, LineLayer) for layer in config.layers)

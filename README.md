@@ -15,14 +15,14 @@ as packages are added or their dependencies change.
 | `detector2d` | -- |
 | `clustering_utils` | -- |
 | `viz_style` | -- |
-| `tracksim2d` | `detector2d`, `viz_style` |
+| `detectorsim2d` | `detector2d`, `viz_style` |
 | `sensor` | `clustering_utils`, `viz_style` |
 | `tracker` | `detector2d`, `clustering_utils` |
 | `splitting` | `clustering_utils` (consumes `sensor`-*shaped* run directories, but never imports `sensor`) |
 | `multiplicity` | `clustering_utils`, `viz_style` (trains on `sensor`-shaped run directories, same as `splitting`) |
-| `graphs` | `tracksim2d` (transitively `detector2d`), `viz_style` |
+| `graphs` | `detectorsim2d` (transitively `detector2d`), `viz_style` |
 | `hopfield_tracking` | `viz_style` (plain `(x, y)` hit points, no `detector2d` dependency) |
-| `denby` (scripts) | `detector2d`, `tracksim2d`, `hopfield_tracking` |
+| `denby` (scripts) | `detector2d`, `detectorsim2d`, `hopfield_tracking` |
 | `soho` (scripts) | -- |
 
 Nothing here is circular, and each package's `pyproject.toml`/
@@ -35,17 +35,17 @@ they're installed explicitly as path installs (see [Install](#install)) so
 | module | what it does |
 |---|---|
 | [`detector/detector2d`](detector/detector2d) | 2D detector geometry and trajectory-intersection primitives (line/circle layers, straight/arc trajectories, segmented calorimeter rings, polygonal muon stations, and piecewise-radial field maps with the multi-arc propagation they imply). No pandas/IO -- the pure-math layer everything else builds on. |
-| [`simulator/tracksim2d`](simulator/tracksim2d) | Particle event generation, CSV/Arrow IO, and visualization for a full 2D detector -- tracker, EM and hadronic calorimeters, muon system -- on top of `detector2d`. Particles have species, and the three interaction classes (EM / hadronic / muon) stop in three different places. |
+| [`simulator/detectorsim2d`](simulator/detectorsim2d) | Particle event generation, CSV/Arrow IO, and visualization for a full 2D detector -- tracker, EM and hadronic calorimeters, muon system -- on top of `detector2d`. Particles have species, and the three interaction classes (EM / hadronic / muon) stop in three different places. |
 | [`clustering/utils`](clustering/utils) | Shared CSV/Apache Arrow table read/write, factored out once from `sensor`/`tracker`'s originally-duplicated IO. |
-| [`viz/style`](viz/style) | Centralized matplotlib theming (`Theme`: `print`, the default, matching each package's original look; `present`, no titles anywhere and no axes for detector/sensor spatial displays) and a canonical color palette (Okabe-Ito categorical cycle + named semantic colors), consumed via an optional `theme=` parameter and CLI `--style` flag across `sensor`/`tracksim2d`/`graphs`/`hopfield_tracking`/`multiplicity`. |
+| [`viz/style`](viz/style) | Centralized matplotlib theming (`Theme`: `print`, the default, matching each package's original look; `present`, no titles anywhere and no axes for detector/sensor spatial displays) and a canonical color palette (Okabe-Ito categorical cycle + named semantic colors), consumed via an optional `theme=` parameter and CLI `--style` flag across `sensor`/`detectorsim2d`/`graphs`/`hopfield_tracking`/`multiplicity`. |
 | [`clustering/sensor`](clustering/sensor) | Simulates charged particles crossing a pixelated silicon slab: digitization, connected-component clustering, and analysis/visualization. |
-| [`clustering/tracker`](clustering/tracker) | Turns `tracksim2d` hits into clusters via 1D adjacent-cell grouping along each detector layer -- the tracking-detector analogue of `sensor`'s pixel clustering. |
+| [`clustering/tracker`](clustering/tracker) | Turns `detectorsim2d` hits into clusters via 1D adjacent-cell grouping along each detector layer -- the tracking-detector analogue of `sensor`'s pixel clustering. |
 | [`clustering/splitting`](clustering/splitting) | Splits a `sensor` cluster that merged more than one truth particle's hits back apart, behind a pluggable `Splitter` interface. Ships one splitter (`TruthSplitter`, a ground-truth oracle/baseline). |
 | [`clustering/multiplicity`](clustering/multiplicity) | Small MLP that predicts a cluster's particle multiplicity (1/2/3) from its pixel pattern alone -- the question a real (non-truth) splitter needs answered before it can split a cluster. |
 | [`clustering/soho`](clustering/soho) | Standalone exercise (no local-package dependencies): clusters the ~536 casualty markers on John Snow's 1854 Soho cholera map a few different ways and checks how close each lands to the real Broad Street pump. |
-| [`tracking/graphs`](tracking/graphs) | Builds candidate track graphs (nodes = hits, edges = candidate connections) from `tracksim2d` hits under a configurable, YAML-driven prescription (fully-connected / regional / explicit rules), with optional ground-truth edge labeling. |
+| [`tracking/graphs`](tracking/graphs) | Builds candidate track graphs (nodes = hits, edges = candidate connections) from `detectorsim2d` hits under a configurable, YAML-driven prescription (fully-connected / regional / explicit rules), with optional ground-truth edge labeling. |
 | [`tracking/hopfield_tracking`](tracking/hopfield_tracking) | From-scratch reimplementation of Denby (1988)'s Hopfield-network track finder. Works on plain `(x, y)` hit points -- no `detector2d` dependency. |
-| [`tracking/denby`](tracking/denby) | Recreates the Denby (1988) paper's own worked example end to end: harmonizes the detector drawn in the paper's figure, fits the 4-track event back into particle parameters, re-simulates it through `tracksim2d`, and runs `hopfield_tracking` on it. Script collection, not an installable package. |
+| [`tracking/denby`](tracking/denby) | Recreates the Denby (1988) paper's own worked example end to end: harmonizes the detector drawn in the paper's figure, fits the 4-track event back into particle parameters, re-simulates it through `detectorsim2d`, and runs `hopfield_tracking` on it. Script collection, not an installable package. |
 | [`flavor_tagging`](flavor_tagging) | Not started yet -- currently just a reference PDF (`resources/Z-bb-LEP.pdf`) on LEP-era b-tagging. |
 
 ## Install

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  # headless matplotlib backend (tracksim2d/hopfield_tracking/denby all plot)
+  # headless matplotlib backend (detectorsim2d/hopfield_tracking/denby all plot)
   MPLBACKEND: Agg
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
           # Each package below is independently installable (its own
           # requirements.txt, most with a pyproject.toml) and has its own
           # tests/ directory -- mirroring how they're developed locally,
-          # one venv per package. Sibling path dependencies (e.g. tracksim2d
+          # one venv per package. Sibling path dependencies (e.g. detectorsim2d
           # needing detector2d) are installed editable, matching each
           # package's own README "Setup" section.
           - name: detector2d
@@ -35,8 +35,8 @@ jobs:
             install: pip install -e . -r requirements.txt
             test: pytest tests/ -q
 
-          - name: tracksim2d
-            path: simulator/tracksim2d
+          - name: detectorsim2d
+            path: simulator/detectorsim2d
             install: pip install -e ../../detector/detector2d -e ../../viz/style -e . -r requirements.txt
             test: pytest tests/ -q
 
@@ -68,7 +68,7 @@ jobs:
 
           - name: denby
             path: tracking/denby
-            install: pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
+            install: pip install -e ../../detector/detector2d -e ../../simulator/detectorsim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
             test: python -m pytest tests/ -q
 
     steps:

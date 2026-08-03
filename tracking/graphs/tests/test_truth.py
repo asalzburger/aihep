@@ -2,7 +2,7 @@ import math
 
 import pandas as pd
 import pytest
-from tracksim2d.edm import HITS_COLUMNS
+from detectorsim2d.edm import HITS_COLUMNS
 
 from graphs.build import build_graph
 from graphs.edm import LABELED_EDGES_COLUMNS

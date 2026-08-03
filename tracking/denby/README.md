@@ -1,7 +1,7 @@
 # Denby detector recreation
 
 A first concrete application of [`detector2d`](../../detector/detector2d) /
-[`tracksim2d`](../../simulator/tracksim2d): harmonize the detector drawn in
+[`detectorsim2d`](../../simulator/detectorsim2d): harmonize the detector drawn in
 `resources/denby_detector.svg` (13 slightly irregular detection planes),
 infer the 4-track event in `resources/denby_detector_event.svg` back into
 particle parameters, and re-simulate it through the harmonized detector so
@@ -80,7 +80,7 @@ circle at the derived vertex.
 ### 2. Fit the event
 
 For each of the 4 tracks, `fit_event.fit_track` recovers
-`(x0, y0, phi0, charge, radius)` in `tracksim2d.edm.PARTICLES_COLUMNS`
+`(x0, y0, phi0, charge, radius)` in `detectorsim2d.edm.PARTICLES_COLUMNS`
 form:
 
 - `(x0, y0)` = the derived vertex (shared by all 4 rows)
@@ -102,9 +102,9 @@ Result: `resources/denby_event.csv`, 4 rows, one `event_id`.
 ### 3. Re-simulate and render
 
 `render_event.py` loads both CSVs, calls
-`tracksim2d.simulate.hits_for_particles` (the exact same function any other
-`tracksim2d` consumer would use) to get hits on the 13 harmonized layers,
-then `tracksim2d.vis.export_svg` twice: once alone
+`detectorsim2d.simulate.hits_for_particles` (the exact same function any other
+`detectorsim2d` consumer would use) to get hits on the 13 harmonized layers,
+then `detectorsim2d.vis.export_svg` twice: once alone
 (`denby_event_simulated.svg`), once layered on top of the original
 reference figure at reduced opacity (`denby_overlay.svg`) for a one-glance
 visual diff.
@@ -137,7 +137,7 @@ here wire that package to this event and to fresh simulated ones:
 | script | does |
 |---|---|
 | `python/run_hopfield_on_denby_event.py` | Runs `hopfield_tracking` on this page's own 4-track event; reliably reconstructs 2 of the 4 tracks exactly and the other 2 along their outer ~8 of 13 hits, with confusion in their innermost hits near the shared vertex -- see `hopfield_tracking/README.md` for why, and for the two real dynamical-stability findings that were needed to get this far at all. Writes `resources/denby_hopfield_hits.csv` and `resources/denby_hopfield_fig8.png`. |
-| `python/generate_random_events.py` | Reuses `tracksim2d`'s existing particle-gun simulation + this page's harmonized detector/vertex to generate a batch of synthetic 1-6-track events ("simulated events with from 1 to 6 tracks", per the paper) -- task item 4's "detector parameter and random simulation" dataset. Writes `resources/denby_random_events.csv`. |
+| `python/generate_random_events.py` | Reuses `detectorsim2d`'s existing particle-gun simulation + this page's harmonized detector/vertex to generate a batch of synthetic 1-6-track events ("simulated events with from 1 to 6 tracks", per the paper) -- task item 4's "detector parameter and random simulation" dataset. Writes `resources/denby_random_events.csv`. |
 | `python/run_hopfield_sweep.py` | Runs the network on every generated event and reports perfect-reconstruction rate by multiplicity: the paper's qualitative fig. 8(a)-vs-8(b) contrast, quantified and swept systematically. Writes `resources/denby_sweep_results.csv`. |
 
 Figure 9 (the paper's separate, much simpler, non-Hopfield "contiguity
@@ -149,12 +149,12 @@ trigger") gets a small illustrative reproduction at
 ```bash
 cd tracking/denby
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/detectorsim2d -e ../hopfield_tracking -e ../../viz/style -r requirements.txt
 ```
 
-(`detector2d`/`tracksim2d`/`hopfield_tracking`/`viz_style` are sibling path
+(`detector2d`/`detectorsim2d`/`hopfield_tracking`/`viz_style` are sibling path
 packages, not on PyPI, so they're installed explicitly. `viz_style` isn't
-called directly here, but `tracksim2d.vis`/`hopfield_tracking.vis` -- used
+called directly here, but `detectorsim2d.vis`/`hopfield_tracking.vis` -- used
 by the scripts below -- import it at module load, so it's a real
 dependency even though this page never touches its API.)
 
@@ -181,4 +181,4 @@ layers (so harmonization is doing something); the harmonized detector is 13
 equidistant, equal-length, equal-extent layers; the derived vertex matches
 both the marker dot and the cross-check; the fitted event has one row per
 track sharing a vertex; `denby_event.csv` round-trips through
-`tracksim2d.io`; and the quantitative pixel-residual match check above.
+`detectorsim2d.io`; and the quantitative pixel-residual match check above.

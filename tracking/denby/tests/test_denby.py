@@ -15,9 +15,9 @@ from fit_event import EVENT_SVG, fit_event
 from harmonize_detector import harmonized_layers
 from render_event import RESOURCES
 
-from tracksim2d.edm import PARTICLES_COLUMNS
-from tracksim2d.io import read_table, write_table
-from tracksim2d.simulate import hits_for_particles
+from detectorsim2d.edm import PARTICLES_COLUMNS
+from detectorsim2d.io import read_table, write_table
+from detectorsim2d.simulate import hits_for_particles
 
 MAX_PIXEL_RESIDUAL = 5.0  # px, on a ~1000px-wide figure -- see README.md
 
@@ -65,7 +65,7 @@ def test_fitted_event_has_one_row_per_track_sharing_the_vertex():
 
 
 @pytest.mark.parametrize("fmt", ["csv", "arrow"])
-def test_denby_event_round_trips_through_tracksim2d_io(tmp_path, fmt):
+def test_denby_event_round_trips_through_detectorsim2d_io(tmp_path, fmt):
     particles = fit_event()
     path = tmp_path / f"particles.{fmt}"
     write_table(particles, path, fmt)
@@ -122,7 +122,7 @@ def test_hopfield_tracking_reconstructs_most_of_the_real_event():
     shared vertex)."""
     from hopfield_tracking.cli import run as hopfield_run
 
-    from tracksim2d.simulate import hits_for_particles
+    from detectorsim2d.simulate import hits_for_particles
 
     layers = harmonized_layers()
     particles = fit_event()

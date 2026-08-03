@@ -15,11 +15,11 @@ from detector2d.field import FieldRegion, FieldRegions
 from detector2d.geometry import CircleLayer
 from detector2d.polygon import build_muon_system
 
-from tracksim2d.config import FieldConfig, ParticleGunConfig, SimConfig
-from tracksim2d.edm import DEPOSITS_COLUMNS, PARTICLES_COLUMNS
-from tracksim2d.response import ResponseConfig, ShowerProfile, sum_cells
-from tracksim2d.simulate import path_for_row, propagate_particles, simulate_events
-from tracksim2d.species import SPECIES
+from detectorsim2d.config import FieldConfig, ParticleGunConfig, SimConfig
+from detectorsim2d.edm import DEPOSITS_COLUMNS, PARTICLES_COLUMNS
+from detectorsim2d.response import ResponseConfig, ShowerProfile, sum_cells
+from detectorsim2d.simulate import path_for_row, propagate_particles, simulate_events
+from detectorsim2d.species import SPECIES
 
 TRACKER_OUTER = 210.0
 ECAL_INNER, ECAL_THICKNESS, ECAL_N_PHI = 210.0, 30.0, 256

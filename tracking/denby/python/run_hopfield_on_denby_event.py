@@ -4,19 +4,19 @@ a random state, watch the network relax into the same 4 tracks last
 session's `render_event.py` drew directly from the fitted parameters.
 
 Reads resources/denby_layers.csv + resources/denby_event.csv (same as
-render_event.py), computes hits via tracksim2d exactly as any other
-tracksim2d consumer would, and writes:
+render_event.py), computes hits via detectorsim2d exactly as any other
+detectorsim2d consumer would, and writes:
 
 - resources/denby_hopfield_hits.csv -- the plain (x, y, particle_id,
   layer_id) table `hopfield_tracking` actually consumes (no other
-  detector2d/tracksim2d-specific columns), for reference/reuse. `layer_id`
+  detector2d/detectorsim2d-specific columns), for reference/reuse. `layer_id`
   is what lets it exclude same-layer candidate segments -- two hits on the
   same detector plane can never be the two ends of one physical track
   segment, see hopfield_tracking/network.py::build_segments.
 - resources/denby_hopfield_fig8.png -- the fig.-8-style multi-panel figure.
 
 Run from this directory (`tracking/denby/python/`) with the project venv
-(which needs `hopfield_tracking` installed alongside detector2d/tracksim2d,
+(which needs `hopfield_tracking` installed alongside detector2d/detectorsim2d,
 see ../README.md):
 
     ../.venv/bin/python run_hopfield_on_denby_event.py
@@ -29,7 +29,7 @@ from render_event import RESOURCES, load_layers
 
 from hopfield_tracking.cli import run
 from hopfield_tracking.vis import plot_iterations
-from tracksim2d.simulate import hits_for_particles
+from detectorsim2d.simulate import hits_for_particles
 
 HITS_CSV = RESOURCES / "denby_hopfield_hits.csv"
 FIGURE_PNG = RESOURCES / "denby_hopfield_fig8.png"

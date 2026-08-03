@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 from denby_svg import derive_vertex, fit_circle_to_svg_path, parse_event_tracks, sample_cubic_path
 
-from tracksim2d.edm import PARTICLES_COLUMNS
+from detectorsim2d.edm import PARTICLES_COLUMNS
 
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 EVENT_SVG = RESOURCES / "denby_detector_event.svg"

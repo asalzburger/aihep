@@ -2,7 +2,7 @@
 
 Reads resources/denby_layers.csv + resources/denby_event.csv (written by
 harmonize_detector.py / fit_event.py), computes hits via
-detector2d/tracksim2d exactly like any other tracksim2d event, and writes:
+detector2d/detectorsim2d exactly like any other detectorsim2d event, and writes:
 
 - resources/denby_event_simulated.svg -- the harmonized detector + simulated
   event, alone, in the same coordinate system/viewBox as the reference
@@ -23,8 +23,8 @@ import pandas as pd
 from denby_svg import extract_svg_body
 
 from detector2d.geometry import LineLayer
-from tracksim2d.simulate import hits_for_particles
-from tracksim2d.vis import export_svg
+from detectorsim2d.simulate import hits_for_particles
+from detectorsim2d.vis import export_svg
 
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 LAYERS_CSV = RESOURCES / "denby_layers.csv"

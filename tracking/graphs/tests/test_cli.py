@@ -1,8 +1,8 @@
 import math
 
 import pandas as pd
-from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
-from tracksim2d.io import write_run
+from detectorsim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
+from detectorsim2d.io import write_run
 
 from graphs.cli import main
 

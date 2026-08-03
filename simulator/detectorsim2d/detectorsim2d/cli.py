@@ -1,10 +1,10 @@
 """CLI entry point: run the simulation from a config file and write output,
 or visualize a previously written run.
 
-    python -m tracksim2d.cli run --config configs/default.yaml --n-events 100 \\
+    python -m detectorsim2d.cli run --config configs/default.yaml --n-events 100 \\
         --output-dir out/ --format arrow --seed 42
 
-    python -m tracksim2d.cli visualize --config configs/default.yaml --output-dir out/ --format arrow --event-id 0
+    python -m detectorsim2d.cli visualize --config configs/default.yaml --output-dir out/ --format arrow --event-id 0
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ def _cmd_visualize(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="tracksim2d", description=__doc__)
+    parser = argparse.ArgumentParser(prog="detectorsim2d", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_p = subparsers.add_parser("run", help="Run the simulation and write output tables")

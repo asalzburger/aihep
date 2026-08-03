@@ -1,14 +1,14 @@
 """Event data model for candidate track graphs built on top of a
-`tracksim2d` hits table.
+`detectorsim2d` hits table.
 
 - **nodes** are exactly the hits table `graphs.build.build_graph` was given
-  -- a graph's nodes *are* hits, unmodified (see `tracksim2d.edm.HITS_COLUMNS`).
+  -- a graph's nodes *are* hits, unmodified (see `detectorsim2d.edm.HITS_COLUMNS`).
   Nothing here re-derives or duplicates them.
 - **edges** -- one row per candidate hit-to-hit connection, always evaluated
   within a single event (`event_id`) -- hits from different events never
   connect. `src_hit_id`/`dst_hit_id` are `hits.hit_id` values, which are
   globally unique across an entire hits table (see
-  `tracksim2d.simulate.hits_for_particles`), so an edge can be resolved back
+  `detectorsim2d.simulate.hits_for_particles`), so an edge can be resolved back
   to its two hit rows without also needing `event_id`.
 """
 
@@ -51,7 +51,7 @@ class TrackGraph:
     joined by `event_id` and `hit_id`/`src_hit_id`/`dst_hit_id` -- rather
     than a graph-library object, so it round-trips through the same
     CSV/Arrow IO as the rest of this codebase (see `graphs.io`) and overlays
-    directly onto `tracksim2d.vis.plot_event` (see `graphs.vis`)."""
+    directly onto `detectorsim2d.vis.plot_event` (see `graphs.vis`)."""
 
     nodes: pd.DataFrame
     edges: pd.DataFrame

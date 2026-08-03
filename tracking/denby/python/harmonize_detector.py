@@ -23,8 +23,8 @@ import pandas as pd
 from denby_svg import derive_vertex, parse_layer_lines
 
 from detector2d.geometry import LineLayer
-from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
-from tracksim2d.vis import export_svg
+from detectorsim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
+from detectorsim2d.vis import export_svg
 
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 DETECTOR_SVG = RESOURCES / "denby_detector.svg"

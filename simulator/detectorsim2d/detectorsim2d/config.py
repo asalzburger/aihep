@@ -46,7 +46,7 @@ class ParticleGunConfig:
     vertex_spread_y: float = 0.0
     phi_min: float = -0.3
     phi_max: float = 0.3
-    #: Species names to draw from (see :mod:`tracksim2d.species`), with
+    #: Species names to draw from (see :mod:`detectorsim2d.species`), with
     #: optional relative weights. When empty the gun falls back to the
     #: original species-free behaviour: a bare charged stub drawn from
     #: ``charges``, which bends and leaves hits but has no calorimeter
@@ -89,10 +89,10 @@ class SimConfig:
     n_events: int = 1
     seed: int | None = None
     #: Outer radius of the tracker volume, centered at the origin. Passed to
-    #: `tracksim2d.simulate.propagate_particles`, which stops propagating a
+    #: `detectorsim2d.simulate.propagate_particles`, which stops propagating a
     #: particle once it first exits this radius -- past that point a curved
     #: arc would otherwise loop back inward, which isn't physically
-    #: meaningful once the particle has left the tracker. `tracksim2d.vis`
+    #: meaningful once the particle has left the tracker. `detectorsim2d.vis`
     #: applies the same cutoff to the drawn curve itself. ``None`` disables
     #: the cap. In a full detector this is superseded by `world_radius`.
     tracker_boundary: float | None = None

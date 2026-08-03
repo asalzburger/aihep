@@ -1,5 +1,5 @@
-# Default configuration for tracksim2d. Any key omitted here falls back to
-# the dataclass default in tracksim2d/config.py.
+# Default configuration for detectorsim2d. Any key omitted here falls back to
+# the dataclass default in detectorsim2d/config.py.
 #
 # A small toy detector: 5 vertical line layers spaced 20 units apart, plus
 # one circular (barrel) layer around the vertex, all with a 1.0-unit

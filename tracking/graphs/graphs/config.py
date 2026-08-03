@@ -1,5 +1,5 @@
 """YAML-driven configuration for graph building -- the same load/merge
-pattern as `tracksim2d.config.load_config`: a single `GraphConfig` dataclass
+pattern as `detectorsim2d.config.load_config`: a single `GraphConfig` dataclass
 with a sensible default, loaded from a `prescription:` section in a config
 file. See `graphs.prescription` for what `kind`s are available and
 `configs/` for one working example per kind.

@@ -20,7 +20,7 @@
 -e ./viz/style
 
 # --- Depend on detector2d ---
--e ./simulator/tracksim2d
+-e ./simulator/detectorsim2d
 
 # --- Depend on clustering/utils (+ viz_style for sensor/multiplicity) ---
 -e ./clustering/sensor
@@ -28,7 +28,7 @@
 -e ./clustering/splitting
 -e ./clustering/multiplicity
 
-# --- Depend on tracksim2d/detector2d (+ viz_style) ---
+# --- Depend on detectorsim2d/detector2d (+ viz_style) ---
 -e ./tracking/graphs
 
 # --- Depend on viz_style only (plain hit points, no detector2d) ---
