@@ -286,11 +286,11 @@ def plot_event(
         s_values = np.linspace(0.0, s_end, 300)
         xs, ys = zip(*(path.position(s) for s in s_values))
         ax.plot(xs, ys, color=color, linewidth=1.5, zorder=3, label=_particle_label(particle))
-        ax.plot(*path.position(0.0), marker="*", color=VERTEX_COLOR, markersize=10, zorder=5)
+        ax.plot(*path.position(0.0), marker="*", color=VERTEX_COLOR, markersize=5, zorder=5)
         if len(particle_hits):
             ax.scatter(
                 particle_hits["x"], particle_hits["y"],
-                color=color, edgecolors=HIT_COLOR, s=40, zorder=4,
+                color=color, edgecolors=HIT_COLOR, s=15, zorder=4,
             )
 
     ax.set_aspect("equal")

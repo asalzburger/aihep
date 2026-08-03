@@ -94,24 +94,40 @@ def plot_roc(roc: dict, save_path: str | Path | None = None, theme: Theme | None
 
 
 def plot_confusion_matrix(
-    cm: np.ndarray, classes: list[int], save_path: str | Path | None = None, theme: Theme | None = None
+    cm: np.ndarray, classes: list[int], save_path: str | Path | None = None, theme: Theme | None = None,
+    normalize: bool = False,
 ):
+    """`normalize=True` shows each row (true class) as a fraction of its own
+    row total -- i.e. per-class recall -- instead of raw counts, which is
+    usually the more readable view whenever classes are imbalanced. A true
+    class with zero examples gets an all-zero row rather than dividing by
+    zero."""
     import matplotlib.pyplot as plt
     from viz_style.mpl import style_axes
 
+    if normalize:
+        row_sums = cm.sum(axis=1, keepdims=True)
+        display = np.divide(cm, row_sums, out=np.zeros(cm.shape, dtype=float), where=row_sums > 0)
+    else:
+        display = cm
+
     fig, ax = plt.subplots(figsize=(4.5, 4))
-    im = ax.imshow(cm, cmap=palette.SEQUENTIAL_CONFUSION_CMAP)
+    if normalize:
+        im = ax.imshow(display, cmap=palette.SEQUENTIAL_CONFUSION_CMAP, vmin=0.0, vmax=1.0)
+    else:
+        im = ax.imshow(display, cmap=palette.SEQUENTIAL_CONFUSION_CMAP)
     ax.set_xticks(range(len(classes)), labels=[str(c) for c in classes])
     ax.set_yticks(range(len(classes)), labels=[str(c) for c in classes])
     style_axes(
         ax, theme, spatial=False, title="Confusion matrix",
         xlabel="predicted n particles", ylabel="true n particles",
     )
-    threshold = cm.max() / 2 if cm.max() > 0 else 0
+    threshold = display.max() / 2 if display.max() > 0 else 0
     for i in range(len(classes)):
         for j in range(len(classes)):
+            text = f"{display[i, j]:.2f}" if normalize else str(cm[i, j])
             ax.text(
-                j, i, str(cm[i, j]), ha="center", va="center", color="white" if cm[i, j] > threshold else "black"
+                j, i, text, ha="center", va="center", color="white" if display[i, j] > threshold else "black"
             )
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
