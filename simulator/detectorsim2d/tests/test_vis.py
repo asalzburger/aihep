@@ -9,9 +9,9 @@ from detector2d.polygon import build_muon_system
 from detector2d.propagate import propagate
 from viz_style import PRESENT, PRINT
 
-from tracksim2d.edm import DEPOSITS_COLUMNS, HITS_COLUMNS, PARTICLES_COLUMNS
-from tracksim2d.vis import _arc_path_d, _track_end_s, export_svg, plot_event, plot_lego
-from tracksim2d.simulate import boundary_crossing_s, trajectory_for_row
+from detectorsim2d.edm import DEPOSITS_COLUMNS, HITS_COLUMNS, PARTICLES_COLUMNS
+from detectorsim2d.vis import _arc_path_d, _track_end_s, export_svg, plot_event, plot_lego
+from detectorsim2d.simulate import boundary_crossing_s, trajectory_for_row
 
 
 def _one_particle_event():

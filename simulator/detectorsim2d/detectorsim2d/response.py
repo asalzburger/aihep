@@ -20,7 +20,7 @@ line up. That matters here specifically: the ECAL's middle layer is staggered
 by half a cell, so a shower centered on a boundary in layers 0 and 2 is
 centered mid-cell in layer 1, and only an integral gets both right.
 
-Three responses, selected by :mod:`tracksim2d.species`'s ``interaction``:
+Three responses, selected by :mod:`detectorsim2d.species`'s ``interaction``:
 
 - ``em`` -> :func:`shower` in the ECAL; nothing beyond.
 - ``hadron`` -> :func:`mip` in the ECAL if charged, :func:`shower` in the HCAL.

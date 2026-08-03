@@ -1,8 +1,8 @@
 """Graph visualization: draw a `~graphs.edm.TrackGraph`'s edges *on top of*
-an existing `tracksim2d.vis.plot_event` figure, rather than duplicating its
+an existing `detectorsim2d.vis.plot_event` figure, rather than duplicating its
 layer/trajectory/hit drawing. A graph only adds one new kind of mark (edges
 as line segments between two hits' `(x, y)`); everything else about the
-event display already belongs to `tracksim2d`.
+event display already belongs to `detectorsim2d`.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from tracksim2d.vis import plot_event
+from detectorsim2d.vis import plot_event
 from viz_style import Theme, palette
 
 EDGE_COLOR = palette.EDGE
@@ -30,7 +30,7 @@ def plot_edges_on(
     true_alpha: float = 0.8,
 ) -> Axes:
     """Draw ``edges`` as line segments between their two hits' `(x, y)`
-    positions on an existing ``ax`` (e.g. from `tracksim2d.vis.plot_event`).
+    positions on an existing ``ax`` (e.g. from `detectorsim2d.vis.plot_event`).
     ``zorder`` defaults just above detector layers (``zorder=1``) and below
     trajectories/hits (``zorder=2``/``3``), so edges read as connective
     tissue between hits without obscuring either.
@@ -69,7 +69,7 @@ def plot_event_with_graph(
     true_edge_alpha: float = 0.8,
     theme: Theme | None = None,
 ) -> Figure:
-    """`tracksim2d.vis.plot_event`, with this event's candidate-graph edges
+    """`detectorsim2d.vis.plot_event`, with this event's candidate-graph edges
     drawn underneath the trajectories and hits. ``edges`` is a full graph's
     edges table (e.g. `~graphs.build.build_graph(hits, prescription).edges`,
     optionally truth-labeled via `graphs.truth.label_edges` -- see

@@ -1,6 +1,6 @@
 # tracker
 
-Turns `tracksim2d` hits into clusters: adjacent-cell grouping along each
+Turns `detectorsim2d` hits into clusters: adjacent-cell grouping along each
 detector layer, the tracking-detector analogue of
 [`sensor`](../sensor)'s pixel-grid clustering. Deliberately
 1D and dependency-light (no scipy) -- unlike a 2D pixel grid, a single
@@ -11,7 +11,7 @@ between consecutive sorted cell indices.
 
 | module | contents |
 |---|---|
-| `tracker.edm` | `HITS_COLUMNS` (a digitized hit: the `tracksim2d` hit columns + `cell_index`), `CLUSTERS_COLUMNS`. |
+| `tracker.edm` | `HITS_COLUMNS` (a digitized hit: the `detectorsim2d` hit columns + `cell_index`), `CLUSTERS_COLUMNS`. |
 | `tracker.digitize` | `digitize_hits(hits_df, layers)`: `cell_index = floor(s_local / layer.pitch)`. Layers with no `pitch` are left un-digitized (`cell_index = NaN`). |
 | `tracker.clustering` | `cluster_hits(hits_df, connectivity_gap=1)`: 1D connected components of cell indices, per `(event_id, layer_id)`. |
 | `tracker.io` | Read/write digitized `hits`/`clusters` tables as CSV or Apache Arrow (the serialization itself lives in [`clustering/utils`](../utils), shared with `clustering/sensor`). |
@@ -31,11 +31,11 @@ dependencies.)
 ## Using it as a library
 
 ```python
-from tracksim2d.simulate import simulate_events
+from detectorsim2d.simulate import simulate_events
 from tracker.digitize import digitize_hits
 from tracker.clustering import cluster_hits
 
-particles, hits = simulate_events(config)          # from tracksim2d
+particles, hits = simulate_events(config)          # from detectorsim2d
 digitized = digitize_hits(hits, config.layers)      # adds cell_index
 clustered_hits, clusters = cluster_hits(digitized)  # adds cluster_id, aggregates
 ```

@@ -10,7 +10,7 @@ Split on purpose:
   :func:`hits_for_particles` is the hits-only view of it, unchanged in
   signature and behaviour from before the calorimeter existed.
 - :func:`simulate_events` is the random-gun path: sample particles from a
-  :class:`~tracksim2d.config.ParticleGunConfig`, then propagate them.
+  :class:`~detectorsim2d.config.ParticleGunConfig`, then propagate them.
 
 **Where a particle stops is what distinguishes it.** Rather than a special
 mechanism, absorption reuses the boundary cutoff that already existed for the
@@ -124,7 +124,7 @@ def stopping_radius(species, layers, response_config, world_radius: float | None
 
 def _sensitive_layers(layers) -> list[Layer]:
     """Layers that record a position hit -- everything except the calorimeter
-    rings, which record energy instead (see :mod:`tracksim2d.response`)."""
+    rings, which record energy instead (see :mod:`detectorsim2d.response`)."""
     return [layer for layer in layers if not isinstance(layer, CaloRing)]
 
 
@@ -144,7 +144,7 @@ def propagate_particles(
     Hits: the earliest crossing of each sensitive (non-calorimeter) layer,
     for charged particles only, up to the particle's stopping radius.
     Deposits: the calorimeter response for the particle's species (see
-    :mod:`tracksim2d.response`), empty when no ``response_config`` is given.
+    :mod:`detectorsim2d.response`), empty when no ``response_config`` is given.
 
     ``tracker_boundary`` still caps propagation as it always did: without it a
     curved trajectory's own circular arc loops back through the radius it

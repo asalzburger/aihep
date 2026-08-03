@@ -1,6 +1,6 @@
 """Event data model: hits (as digitized onto layer cells) and clusters.
 
-Builds on `tracksim2d.edm.HITS_COLUMNS` (event_id, particle_id, layer_id,
+Builds on `detectorsim2d.edm.HITS_COLUMNS` (event_id, particle_id, layer_id,
 hit_id, x, y, s_local, path_length) by adding `cell_index`; clusters group
 adjacent cells on the same layer, within the same event.
 """

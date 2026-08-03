@@ -29,7 +29,7 @@ PARTICLES_COLUMNS = [
     "energy",
     "radius",
 ]
-"""`species`/`pdg` name the particle (see tracksim2d.species); both may be
+"""`species`/`pdg` name the particle (see detectorsim2d.species); both may be
 absent/NaN for a hand-built table that only knows kinematics, in which case
 the particle is treated as a bare charged stub with no calorimeter response.
 
@@ -38,7 +38,7 @@ so it doubles as `pt` and is what `signed_radius` bends.
 
 `radius` is NaN or infinite for a straight track, a finite signed value for
 an arc (positive curls left/CCW, negative curls right/CW) -- see
-detector2d.geometry.Trajectory and tracksim2d.simulate.trajectory_for_row. It
+detector2d.geometry.Trajectory and detectorsim2d.simulate.trajectory_for_row. It
 is the radius in the *innermost* field region; with a piecewise field the
 particle's actual radius changes region by region (see
 detector2d.propagate)."""
@@ -76,7 +76,7 @@ DEPOSITS_COLUMNS = [
 """One row per (particle, calorimeter cell) -- i.e. *truth level*: two
 particles showering into the same cell give two rows, which is what makes
 the table usable as ground truth for cluster-splitting exercises. Use
-`tracksim2d.response.sum_cells` for the particle-blind view a real
+`detectorsim2d.response.sum_cells` for the particle-blind view a real
 reconstruction would see.
 
 `system` is "ecal"/"hcal"; `cell_id` is the azimuthal cell index within that

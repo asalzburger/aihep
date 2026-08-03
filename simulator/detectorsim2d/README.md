@@ -1,4 +1,4 @@
-# tracksim2d
+# detectorsim2d
 
 Particle event generation, CSV/Arrow IO, and visualization for a 2D particle
 detector — tracker, electromagnetic and hadronic calorimeters, and a muon
@@ -24,33 +24,33 @@ apart at all.
 
 | module | contents |
 |---|---|
-| `tracksim2d.edm` | The three per-event table schemas (`particles`, `hits`, `deposits`) shared by `simulate`, `io`, and `vis`. |
-| `tracksim2d.species` | The species registry: name, PDG code, charge, and interaction class (`em`/`hadron`/`muon`) -- the table above, as data. |
-| `tracksim2d.config` | `SimConfig`: detector layout (a flat list of `detector2d` layers, parsed by `detector2d.config`), `FieldConfig`/`FieldRegions`, `ParticleGunConfig`, `ResponseConfig`, loaded from YAML. The layout itself -- `layers:`/`detector:`/`calorimeter:`/`muon:` parsing -- is owned by [`detector2d.config`](../../detector/detector2d#describing-a-detector-layout-from-a-config-dict); see "Configuration" below. |
-| `tracksim2d.response` | The calorimeter response model: longitudinal layer fractions, a lateral Gaussian integrated exactly across each cell, MIP trails, and optional stochastic smearing -- see "Calorimeter response" below. |
-| `tracksim2d.simulate` | `propagate_particles(particles_df, layers, ...)` turns *any* particles table into `(hits, deposits)`; `hits_for_particles(...)` is its hits-only view, unchanged for tracker-only callers; `simulate_events(config)` additionally samples the particles from a `ParticleGunConfig`. |
-| `tracksim2d.io` | Read/write `particles`/`hits`/`deposits` tables as CSV or Apache Arrow. |
-| `tracksim2d.vis` | `plot_event(...)` (matplotlib x/y display), `plot_lego(...)` (the calorimeter unrolled in azimuth) and `export_svg(...)` (dependency-free raw SVG, exact circular arcs via native `A` path commands). |
+| `detectorsim2d.edm` | The three per-event table schemas (`particles`, `hits`, `deposits`) shared by `simulate`, `io`, and `vis`. |
+| `detectorsim2d.species` | The species registry: name, PDG code, charge, and interaction class (`em`/`hadron`/`muon`) -- the table above, as data. |
+| `detectorsim2d.config` | `SimConfig`: detector layout (a flat list of `detector2d` layers, parsed by `detector2d.config`), `FieldConfig`/`FieldRegions`, `ParticleGunConfig`, `ResponseConfig`, loaded from YAML. The layout itself -- `layers:`/`detector:`/`calorimeter:`/`muon:` parsing -- is owned by [`detector2d.config`](../../detector/detector2d#describing-a-detector-layout-from-a-config-dict); see "Configuration" below. |
+| `detectorsim2d.response` | The calorimeter response model: longitudinal layer fractions, a lateral Gaussian integrated exactly across each cell, MIP trails, and optional stochastic smearing -- see "Calorimeter response" below. |
+| `detectorsim2d.simulate` | `propagate_particles(particles_df, layers, ...)` turns *any* particles table into `(hits, deposits)`; `hits_for_particles(...)` is its hits-only view, unchanged for tracker-only callers; `simulate_events(config)` additionally samples the particles from a `ParticleGunConfig`. |
+| `detectorsim2d.io` | Read/write `particles`/`hits`/`deposits` tables as CSV or Apache Arrow. |
+| `detectorsim2d.vis` | `plot_event(...)` (matplotlib x/y display), `plot_lego(...)` (the calorimeter unrolled in azimuth) and `export_svg(...)` (dependency-free raw SVG, exact circular arcs via native `A` path commands). |
 
-`tracksim2d.cli` wires `simulate` -> `io` -> `vis` into `run`/`visualize`
+`detectorsim2d.cli` wires `simulate` -> `io` -> `vis` into `run`/`visualize`
 subcommands, the same split as `sensor.cli`.
 
 ## Setup
 
 ```bash
-cd simulator/tracksim2d
+cd simulator/detectorsim2d
 python3 -m venv .venv
 .venv/bin/pip install -e ../../detector/detector2d -e ../../viz/style -e . -r requirements.txt
 ```
 
 (`detector2d` and `viz_style` are sibling path packages, not on PyPI, so
-they're installed explicitly rather than listed as a `tracksim2d`
+they're installed explicitly rather than listed as a `detectorsim2d`
 dependency.)
 
 ## Run the simulation
 
 ```bash
-.venv/bin/python -m tracksim2d.cli run \
+.venv/bin/python -m detectorsim2d.cli run \
   --config configs/full_detector.yaml \
   --n-events 100 \
   --output-dir out/ \
@@ -70,7 +70,7 @@ muon system, piecewise field); `configs/barrel6.yaml` and
 ## Visualize an event
 
 ```bash
-.venv/bin/python -m tracksim2d.cli visualize \
+.venv/bin/python -m detectorsim2d.cli visualize \
   --config configs/full_detector.yaml --output-dir out/ --format arrow \
   --event-id 0 --save event0.png
 ```
@@ -92,7 +92,7 @@ For the calorimeter unrolled in azimuth — one row per sampling layer, which
 shows the longitudinal profile and lateral spread at a glance:
 
 ```bash
-.venv/bin/python -m tracksim2d.cli visualize \
+.venv/bin/python -m detectorsim2d.cli visualize \
   --config configs/full_detector.yaml --output-dir out/ --format arrow \
   --event-id 0 --view lego --save lego0.png
 ```
@@ -106,7 +106,7 @@ For a raw-SVG export instead (e.g. to overlay against a reference figure in
 the *same* coordinate system, as `tracking/denby` does):
 
 ```python
-from tracksim2d.vis import export_svg
+from detectorsim2d.vis import export_svg
 
 export_svg(config.layers, particles, hits, "event0.svg", width=900, height=900)
 ```
@@ -188,7 +188,7 @@ downstream code has to cope with.
 
 ## Calorimeter response
 
-Two ingredients, both in `tracksim2d/response.py` and both configurable under
+Two ingredients, both in `detectorsim2d/response.py` and both configurable under
 `response:`:
 
 **Longitudinally**, a shower's energy is split across layers by fixed
@@ -283,16 +283,16 @@ tracker_boundary: 210.0   # e.g. just past barrel6.yaml's outermost radius (200)
 makes `hits_for_particles`/`simulate_events` stop propagating each particle
 the moment it first exits that radius (centered at the origin) —
 `detector2d.intersect.first_intersection` against a bare `CircleLayer` at
-that radius, via `tracksim2d.simulate.boundary_crossing_s`. Any crossing
+that radius, via `detectorsim2d.simulate.boundary_crossing_s`. Any crossing
 found beyond that point is dropped, not just hidden: it never reaches the
-`hits` table. `tracksim2d.vis` applies the same cutoff to the drawn curve of
+`hits` table. `detectorsim2d.vis` applies the same cutoff to the drawn curve of
 a particle with no hits (which would otherwise be drawn out to
 `--track-length`/`default_track_length` regardless of the boundary). Leave
 it unset (`null`, the default) to keep the old unbounded behavior.
 
 ## Output schema (event data model)
 
-Defined once in `tracksim2d/edm.py`, reused by `simulate`, `io`, `vis`.
+Defined once in `detectorsim2d/edm.py`, reused by `simulate`, `io`, `vis`.
 Joined by `event_id` (`hits`/`deposits` also by `particle_id`). The
 hits/deposits split is the detector's own: a tracking layer answers *where*,
 a calorimeter cell answers *how much*.
@@ -318,7 +318,7 @@ s_local, energy`
 
 One row per (particle, cell) — i.e. **truth level**: two particles showering
 into the same cell give two rows, which is what makes the table usable as
-ground truth for cluster-splitting exercises. `tracksim2d.response.sum_cells`
+ground truth for cluster-splitting exercises. `detectorsim2d.response.sum_cells`
 collapses it to the particle-blind view a real reconstruction would see.
 
 `io.write_run` takes `deposits` as an optional fourth table and
@@ -329,7 +329,7 @@ collapses it to the particle-blind view a real reconstruction would see.
 ## Using it as a library
 
 ```python
-from tracksim2d.config import SimConfig, ParticleGunConfig, FieldConfig
+from detectorsim2d.config import SimConfig, ParticleGunConfig, FieldConfig
 from detector2d.geometry import LineLayer
 
 config = SimConfig(
@@ -338,15 +338,15 @@ config = SimConfig(
     gun=ParticleGunConfig(n_particles=5),
     n_events=20,
 )
-from tracksim2d.simulate import simulate_events
+from detectorsim2d.simulate import simulate_events
 particles, hits, deposits = simulate_events(config)
 ```
 
 For the full detector, load the shipped config instead of hand-building one:
 
 ```python
-from tracksim2d.config import load_config
-from tracksim2d.simulate import simulate_events
+from detectorsim2d.config import load_config
+from detectorsim2d.simulate import simulate_events
 
 config = load_config("configs/full_detector.yaml")
 particles, hits, deposits = simulate_events(config)

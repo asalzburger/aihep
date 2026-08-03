@@ -3,7 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import pandas as pd
 from detector2d.geometry import LineLayer
-from tracksim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
+from detectorsim2d.edm import HITS_COLUMNS, PARTICLES_COLUMNS
 from viz_style import PRESENT, PRINT
 
 from graphs.build import build_edges
@@ -85,7 +85,7 @@ def test_plot_event_with_graph_overlays_edges_on_the_simulation_plot():
     assert len(edges) == 1
 
     # plain plot_event draws: 2 dashed layer lines + 1 trajectory line = 3 lines, no edges
-    from tracksim2d.vis import plot_event
+    from detectorsim2d.vis import plot_event
 
     base_fig = plot_event(particles, hits, layers, event_id=0)
     base_lines = len(base_fig.axes[0].lines)

@@ -1,10 +1,10 @@
 [project]
 name = "graphs"
 version = "0.1.0"
-description = "Candidate track-graph construction (nodes = hits, edges = a configurable connection prescription) on top of tracksim2d"
+description = "Candidate track-graph construction (nodes = hits, edges = a configurable connection prescription) on top of detectorsim2d"
 requires-python = ">=3.10"
 dependencies = ["numpy", "pandas", "pyyaml", "matplotlib"]
-# tracksim2d (and, transitively, detector2d) and viz_style are sibling path
+# detectorsim2d (and, transitively, detector2d) and viz_style are sibling path
 # packages, not on PyPI; install them explicitly, see README.md.
 
 [build-system]

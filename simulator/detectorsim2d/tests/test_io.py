@@ -3,11 +3,11 @@ import pytest
 from detector2d.calorimeter import build_calo_stack
 from detector2d.geometry import CircleLayer, LineLayer
 
-from tracksim2d.config import FieldConfig, ParticleGunConfig, SimConfig
-from tracksim2d.edm import DEPOSITS_COLUMNS
-from tracksim2d.io import read_deposits, read_run, write_run
-from tracksim2d.response import ResponseConfig
-from tracksim2d.simulate import simulate_events
+from detectorsim2d.config import FieldConfig, ParticleGunConfig, SimConfig
+from detectorsim2d.edm import DEPOSITS_COLUMNS
+from detectorsim2d.io import read_deposits, read_run, write_run
+from detectorsim2d.response import ResponseConfig
+from detectorsim2d.simulate import simulate_events
 
 
 @pytest.mark.parametrize("fmt", ["csv", "arrow"])

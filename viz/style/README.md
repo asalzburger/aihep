@@ -2,7 +2,7 @@
 
 Centralized matplotlib theming and color palette, shared across every
 plotting package in this repo ([`sensor`](../../clustering/sensor),
-[`tracksim2d`](../../simulator/tracksim2d), [`graphs`](../../tracking/graphs),
+[`detectorsim2d`](../../simulator/detectorsim2d), [`graphs`](../../tracking/graphs),
 [`hopfield_tracking`](../../tracking/hopfield_tracking),
 [`multiplicity`](../../clustering/multiplicity)) -- one place to pick
 between a "for a talk" and "for the page" look, and one place canonical
@@ -66,7 +66,7 @@ depends on state left over from an earlier call.
 
 `viz_style.palette` holds every color/colormap constant migrated out of
 the five consuming packages -- `CATEGORICAL_OKABE_ITO` (the Okabe-Ito
-colorblind-safe 6-hue cycle, previously `tracksim2d.DEFAULT_TRACK_COLORS`),
+colorblind-safe 6-hue cycle, previously `detectorsim2d.DEFAULT_TRACK_COLORS`),
 plus named semantic colors (`TRUTH`, `CLUSTER`, `EDGE`, `HIT`, `VERTEX`,
 ...) and two sequential colormap names. Every value is a verbatim lift of
 a pre-existing hardcoded hex -- migrating a module to import from here

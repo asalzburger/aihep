@@ -1,7 +1,7 @@
 """Generate a batch of synthetic multi-track events (1-6 tracks each,
 matching Denby's own "the network was tried on a set of simulated events
 with from 1 to 6 tracks") through the harmonized Denby detector -- reusing
-`tracksim2d`'s existing particle-gun simulation and `detector2d`'s field
+`detectorsim2d`'s existing particle-gun simulation and `detector2d`'s field
 helper rather than writing new generation code (task item 4).
 
 This is a batch of *demonstration/evaluation* events for
@@ -29,7 +29,7 @@ import pandas as pd
 from render_event import RESOURCES, load_layers
 
 from detector2d.field import signed_radius
-from tracksim2d.simulate import hits_for_particles
+from detectorsim2d.simulate import hits_for_particles
 
 EVENTS_CSV = RESOURCES / "denby_random_events.csv"
 

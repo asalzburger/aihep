@@ -1,14 +1,14 @@
 # graphs
 
 Candidate track-graph construction on top of
-[`simulator/tracksim2d`](../../simulator/tracksim2d)'s hits: turns a hits
+[`simulator/detectorsim2d`](../../simulator/detectorsim2d)'s hits: turns a hits
 table into a graph (nodes = hits, edges = candidate hit-to-hit connections)
 according to a configurable, YAML-driven **prescription** -- fully
 connected, regional (phi-sector) selection, or explicit per-feature
 connection rules. Works on hits from *any* `detector2d` layout without
 caring which -- a flat plane stack like [`tracking/denby`](../denby)'s
 recovered event, or a concentric barrel like
-[`simulator/tracksim2d/configs/barrel6.yaml`](../../simulator/tracksim2d/configs/barrel6.yaml)
+[`simulator/detectorsim2d/configs/barrel6.yaml`](../../simulator/detectorsim2d/configs/barrel6.yaml)
 -- since only `x`, `y`, `layer_id`, and `event_id` are ever used, never the
 layer geometry itself.
 
@@ -18,14 +18,14 @@ layer geometry itself.
 |---|---|
 | `graphs.edm` | `EDGES_COLUMNS` (the edges table schema: `src_hit_id`/`dst_hit_id` plus derived `delta_layer_id`/`delta_r`/`delta_phi`/`delta_x`/`delta_y`/`distance`) and `TrackGraph` (`nodes` + `edges`, the graph representation). |
 | `graphs.prescription` | The prescription representation: `FullyConnected`, `Regional`, `ConnectionRules` dataclasses, and `parse_prescription(dict)`. |
-| `graphs.config` | `GraphConfig`/`load_config(path)` -- the same YAML load/merge pattern as `tracksim2d.config.load_config`, for a `prescription:` section. |
+| `graphs.config` | `GraphConfig`/`load_config(path)` -- the same YAML load/merge pattern as `detectorsim2d.config.load_config`, for a `prescription:` section. |
 | `graphs.build` | `build_edges(hits, prescription)` / `build_graph(hits, prescription)` -- the actual pair-selection + edge-feature logic per prescription kind. |
-| `graphs.io` | Read/write the edges table as CSV or Apache Arrow, reusing `tracksim2d.io`. |
+| `graphs.io` | Read/write the edges table as CSV or Apache Arrow, reusing `detectorsim2d.io`. |
 | `graphs.truth` | `label_edges`/`label_graph` (ground-truth `is_true_edge` labeling) and `purity` -- see "Edge truth labeling" below. |
-| `graphs.vis` | `plot_edges_on(ax, nodes, edges)` / `plot_event_with_graph(...)` -- draws edges *on top of* `tracksim2d.vis.plot_event`, rather than duplicating its layer/trajectory/hit drawing. Colors true/false edges differently once labeled. |
+| `graphs.vis` | `plot_edges_on(ax, nodes, edges)` / `plot_event_with_graph(...)` -- draws edges *on top of* `detectorsim2d.vis.plot_event`, rather than duplicating its layer/trajectory/hit drawing. Colors true/false edges differently once labeled. |
 
 `graphs.cli` wires `build` -> `visualize` into subcommands, the same split
-as `tracksim2d.cli`.
+as `detectorsim2d.cli`.
 
 ## The graph representation
 
@@ -35,13 +35,13 @@ from graphs.edm import TrackGraph
 
 A `TrackGraph` is just two `pandas.DataFrame`s:
 
-- **`nodes`** -- exactly the `tracksim2d` hits table it was built from,
+- **`nodes`** -- exactly the `detectorsim2d` hits table it was built from,
   unmodified. A graph's nodes *are* hits.
 - **`edges`** -- one row per candidate connection, `EDGES_COLUMNS`:
   `event_id, edge_id, src_hit_id, dst_hit_id, delta_layer_id, delta_r,
   delta_phi, delta_x, delta_y, distance`. `src_hit_id`/`dst_hit_id` are
   `hits.hit_id` values (globally unique across a whole hits table, see
-  `tracksim2d.simulate.hits_for_particles`); `delta_*`/`distance` are always
+  `detectorsim2d.simulate.hits_for_particles`); `delta_*`/`distance` are always
   `dst - src` (`delta_phi` wrapped into `(-pi, pi]`, since phi is cyclic),
   computed the same way regardless of which prescription built the edge.
   Edges are only ever formed *within* one event -- hits from different
@@ -49,7 +49,7 @@ A `TrackGraph` is just two `pandas.DataFrame`s:
 
 Kept as plain DataFrames rather than a graph-library object so it round-trips
 through the same CSV/Arrow IO as the rest of this codebase and overlays
-directly onto a `tracksim2d` event plot.
+directly onto a `detectorsim2d` event plot.
 
 ## The prescription representation
 
@@ -139,10 +139,10 @@ a glance.
 ```bash
 cd tracking/graphs
 python3 -m venv .venv
-.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/tracksim2d -e ../../viz/style -e . -r requirements.txt
+.venv/bin/pip install -e ../../detector/detector2d -e ../../simulator/detectorsim2d -e ../../viz/style -e . -r requirements.txt
 ```
 
-(`detector2d`/`tracksim2d`/`viz_style` are sibling path packages, not on
+(`detector2d`/`detectorsim2d`/`viz_style` are sibling path packages, not on
 PyPI, so they're installed explicitly rather than listed as a `graphs`
 dependency.)
 
@@ -150,14 +150,14 @@ dependency.)
 
 ```bash
 .venv/bin/python -m graphs.cli build \
-  --run-dir ../../simulator/tracksim2d/out \
+  --run-dir ../../simulator/detectorsim2d/out \
   --format arrow \
   --config configs/connection_rules.yaml \
   --output-dir out/
 ```
 
 Reads `particles.<format>`/`hits.<format>` from `--run-dir` (a directory
-already written by `tracksim2d.cli run`), builds the graph under the given
+already written by `detectorsim2d.cli run`), builds the graph under the given
 prescription, and writes `out/edges.<format>`. With no `--config`, the
 prescription defaults to `fully_connected`. Add `--label-truth` to include
 the ground-truth `is_true_edge` column and print the graph's purity (see
@@ -167,36 +167,36 @@ the ground-truth `is_true_edge` column and print the graph's purity (see
 
 ```bash
 .venv/bin/python -m graphs.cli visualize \
-  --run-dir ../../simulator/tracksim2d/out --format arrow \
-  --sim-config ../../simulator/tracksim2d/configs/barrel6.yaml \
+  --run-dir ../../simulator/detectorsim2d/out --format arrow \
+  --sim-config ../../simulator/detectorsim2d/configs/barrel6.yaml \
   --graph-config configs/connection_rules.yaml \
   --event-id 0 --save graph0.png
 ```
 
-This is `tracksim2d.vis.plot_event` (detector layers, trajectories, hits,
+This is `detectorsim2d.vis.plot_event` (detector layers, trajectories, hits,
 vertices -- see its own README) with the graph's edges for that event drawn
 underneath the trajectories/hits as thin gray line segments between their
-two hits' `(x, y)`. `--sim-config` is the *same* config the `tracksim2d` run
+two hits' `(x, y)`. `--sim-config` is the *same* config the `detectorsim2d` run
 used (for the detector layout to draw); `--graph-config` selects the
 prescription; `--tracker-boundary` overrides the sim config's
-`tracker_boundary` for this plot only, same as `tracksim2d.cli visualize`.
+`tracker_boundary` for this plot only, same as `detectorsim2d.cli visualize`.
 Add `--label-truth` to color true edges more boldly (see "Edge truth
 labeling" below).
 
 ## Using it as a library
 
 ```python
-from tracksim2d.io import read_run
+from detectorsim2d.io import read_run
 from graphs.config import load_config
 from graphs.build import build_graph
 from graphs.vis import plot_event_with_graph
 
-particles, hits = read_run("../../simulator/tracksim2d/out", "arrow")
+particles, hits = read_run("../../simulator/detectorsim2d/out", "arrow")
 config = load_config("configs/connection_rules.yaml")
 graph = build_graph(hits, config.prescription)
 
-from tracksim2d.config import load_config as load_sim_config
-sim_config = load_sim_config("../../simulator/tracksim2d/configs/barrel6.yaml")
+from detectorsim2d.config import load_config as load_sim_config
+sim_config = load_sim_config("../../simulator/detectorsim2d/configs/barrel6.yaml")
 fig = plot_event_with_graph(particles, hits, graph.edges, sim_config.layers, event_id=0)
 ```
 

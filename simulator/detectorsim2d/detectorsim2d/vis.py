@@ -46,7 +46,7 @@ def _track_end_s(
     """How far to draw ``path``: out to whichever it reaches last, its
     farthest hit or its farthest calorimeter deposit (or ``track_length`` if
     it has neither), capped at the tracker boundary crossing (if any, via
-    :func:`tracksim2d.simulate.boundary_crossing_s`) so a curved arc doesn't
+    :func:`detectorsim2d.simulate.boundary_crossing_s`) so a curved arc doesn't
     loop back inward past the point where it's left the tracker volume, and at
     the path's own end.
 

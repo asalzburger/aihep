@@ -22,7 +22,7 @@ than inline so they follow the same rule as everything else.
 from __future__ import annotations
 
 #: Okabe-Ito colorblind-safe categorical palette (Okabe & Ito, 2008), in
-#: tracksim2d's pre-existing cycling order -- the repo's only prior
+#: detectorsim2d's pre-existing cycling order -- the repo's only prior
 #: categorical cycle, now canonicalized.
 CATEGORICAL_OKABE_ITO = (
     "#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9",
@@ -33,11 +33,11 @@ CLUSTER = "#DA4C4C"            # was sensor.vis.CLUSTER_COLOR
 CLUSTER_DIGITAL = "#E67E22"    # was sensor.vis.CENTROID_TYPE_COLOR["digital"]
 DIGITAL_ON = "#C0392B"         # was sensor.vis.DIGITAL_ON_COLOR
 GRID = "0.85"                  # was sensor.vis.GRID_COLOR
-LAYER = "#999999"              # was tracksim2d.vis.LAYER_COLOR
-CALO = "#7F7F7F"               # calorimeter ring outlines (tracksim2d.vis)
-MUON = "#5B6B8C"               # muon-chamber planes (tracksim2d.vis)
-HIT = "#000000"                # was tracksim2d.vis.HIT_COLOR / hopfield_tracking.vis.HIT_COLOR
-VERTEX = "#009E73"             # was tracksim2d.vis.VERTEX_COLOR
+LAYER = "#999999"              # was detectorsim2d.vis.LAYER_COLOR
+CALO = "#7F7F7F"               # calorimeter ring outlines (detectorsim2d.vis)
+MUON = "#5B6B8C"               # muon-chamber planes (detectorsim2d.vis)
+HIT = "#000000"                # was detectorsim2d.vis.HIT_COLOR / hopfield_tracking.vis.HIT_COLOR
+VERTEX = "#009E73"             # was detectorsim2d.vis.VERTEX_COLOR
 EDGE = "#333333"               # was graphs.vis.EDGE_COLOR
 TRUE_EDGE = "#7570B3"          # was graphs.vis.TRUE_EDGE_COLOR
 ON = CATEGORICAL_OKABE_ITO[0]  # was hopfield_tracking.vis.ON_COLOR, an
