@@ -18,7 +18,9 @@ def test_every_color_constant_is_a_plain_string():
     for name in (
         "TRUTH", "CLUSTER", "CLUSTER_DIGITAL", "DIGITAL_ON", "GRID", "LAYER",
         "HIT", "VERTEX", "EDGE", "TRUE_EDGE", "ON",
+        "CALO", "MUON", "ECAL_VOLUME", "HCAL_VOLUME", "MUON_VOLUME",
         "SEQUENTIAL_CHARGE_CMAP", "SEQUENTIAL_CONFUSION_CMAP",
+        "SEQUENTIAL_ECAL_CMAP", "SEQUENTIAL_HCAL_CMAP",
     ):
         assert isinstance(getattr(palette, name), str)
     for hue in palette.CATEGORICAL_OKABE_ITO:

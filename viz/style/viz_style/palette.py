@@ -36,6 +36,9 @@ GRID = "0.85"                  # was sensor.vis.GRID_COLOR
 LAYER = "#999999"              # was detectorsim2d.vis.LAYER_COLOR
 CALO = "#7F7F7F"               # calorimeter ring outlines (detectorsim2d.vis)
 MUON = "#5B6B8C"               # muon-chamber planes (detectorsim2d.vis)
+ECAL_VOLUME = "#F9FCBB"        # ECAL slab fill (detectorsim2d.vis)
+HCAL_VOLUME = "#E7F6FE"        # HCAL slab fill (detectorsim2d.vis)
+MUON_VOLUME = "#FEE8E7"        # muon-system background fill (detectorsim2d.vis)
 HIT = "#000000"                # was detectorsim2d.vis.HIT_COLOR / hopfield_tracking.vis.HIT_COLOR
 VERTEX = "#009E73"             # was detectorsim2d.vis.VERTEX_COLOR
 EDGE = "#333333"               # was graphs.vis.EDGE_COLOR
@@ -50,3 +53,5 @@ CLASS_COLORS = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4")
 
 SEQUENTIAL_CHARGE_CMAP = "YlOrRd"      # was sensor.vis.CHARGE_CMAP
 SEQUENTIAL_CONFUSION_CMAP = "Blues"    # was multiplicity.evaluate's inline "Blues"
+SEQUENTIAL_ECAL_CMAP = "Blues"         # ECAL deposit shading (detectorsim2d.vis)
+SEQUENTIAL_HCAL_CMAP = "Oranges"       # HCAL deposit shading (detectorsim2d.vis)
