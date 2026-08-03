@@ -20,7 +20,8 @@ from detector2d.calorimeter import CaloRing
 from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 from matplotlib.colors import Normalize
 from matplotlib.patches import Circle as MplCircle
-from matplotlib.patches import Wedge
+from matplotlib.patches import PathPatch, Wedge
+from matplotlib.path import Path as MplPath
 from viz_style import Theme, palette
 from viz_style.mpl import style_axes
 
@@ -34,6 +35,12 @@ MUON_COLOR = palette.MUON
 HIT_COLOR = palette.HIT
 VERTEX_COLOR = palette.VERTEX
 ENERGY_CMAP = palette.SEQUENTIAL_CHARGE_CMAP
+
+#: Per-system slab/background fill and deposit-energy colormap, so the three
+#: subsystems read apart at a glance: a pale volume tint behind each one,
+#: with its own energy deposits overlaid in a matching saturated hue.
+VOLUME_COLORS = {"ecal": palette.ECAL_VOLUME, "hcal": palette.HCAL_VOLUME, "muon": palette.MUON_VOLUME}
+ENERGY_CMAPS = {"ecal": palette.SEQUENTIAL_ECAL_CMAP, "hcal": palette.SEQUENTIAL_HCAL_CMAP}
 
 
 def _track_end_s(
@@ -80,17 +87,80 @@ def _layer_style(layer) -> tuple[str, str, float]:
     return (LAYER_COLOR, "-" if isinstance(layer, LineLayer) else "--", 1.0)
 
 
+def _muon_rings(layers) -> dict[int, list[tuple[float, float]]]:
+    """One entry per muon 'plane' (all `LineLayer`s sharing a `layer_id`,
+    e.g. the 8 sides of one octagon station), giving that plane's polygon
+    vertices in angular order around the origin. Adjacent sides share a
+    corner, so deduping + angle-sorting the sides' own endpoints recovers
+    the polygon exactly -- no separate n_sides/apothem needed here."""
+    groups: dict[int, list[tuple[float, float]]] = {}
+    for layer in layers:
+        if isinstance(layer, LineLayer) and layer.system == "muon":
+            groups.setdefault(layer.layer_id, []).extend([layer.p1, layer.p2])
+
+    rings = {}
+    for layer_id, points in groups.items():
+        vertices: list[tuple[float, float]] = []
+        for p in points:
+            if not any(math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-6 for q in vertices):
+                vertices.append(p)
+        vertices.sort(key=lambda p: math.atan2(p[1], p[0]))
+        rings[layer_id] = vertices
+    return rings
+
+
+def _closed_ring_path(vertices, reverse: bool = False) -> tuple[list[tuple[float, float]], list[int]]:
+    """One closed subpath's vertices/codes for `matplotlib.path.Path`,
+    optionally reversed (opposite winding is what punches a hole in a
+    compound path under the nonzero fill rule)."""
+    pts = list(reversed(vertices)) if reverse else list(vertices)
+    pts = pts + [pts[0]]
+    codes = [MplPath.MOVETO] + [MplPath.LINETO] * (len(pts) - 2) + [MplPath.CLOSEPOLY]
+    return pts, codes
+
+
+def _muon_background_patch(layers) -> PathPatch | None:
+    """The muon system's own octagonal (or however many-sided) background
+    volume, from its outermost plane's polygon down to its innermost one's
+    -- an 'octagonal annulus', not a circular one, since real muon stations
+    are flat-sided chambers, not a cylinder."""
+    rings = _muon_rings(layers)
+    if not rings:
+        return None
+
+    def mean_radius(vertices):
+        return sum(math.hypot(x, y) for x, y in vertices) / len(vertices)
+
+    ordered = sorted(rings.values(), key=mean_radius)
+    outer_vertices = ordered[-1]
+    outer_pts, outer_codes = _closed_ring_path(outer_vertices)
+
+    if len(ordered) > 1:
+        inner_pts, inner_codes = _closed_ring_path(ordered[0], reverse=True)
+        path = MplPath(outer_pts + inner_pts, outer_codes + inner_codes)
+    else:
+        # only one plane found (e.g. a single hand-built station): no inner
+        # boundary to punch a hole with, so just fill the solid polygon.
+        path = MplPath(outer_pts, outer_codes)
+
+    return PathPatch(path, facecolor=VOLUME_COLORS["muon"], edgecolor="none", zorder=0.5)
+
+
 def _draw_layers(ax, layers) -> None:
+    muon_background = _muon_background_patch(layers)
+    if muon_background is not None:
+        ax.add_patch(muon_background)
+
     for layer in layers:
         color, linestyle, linewidth = _layer_style(layer)
         if isinstance(layer, CaloRing):
             # a calorimeter layer has real radial depth: draw the slab it
-            # occupies, so its cells have somewhere to live
+            # occupies (tinted by subsystem), so its cells have somewhere to live
             ax.add_patch(
                 Wedge(
                     layer.center, layer.radius + 0.5 * layer.thickness, 0.0, 360.0,
-                    width=layer.thickness, facecolor="none", edgecolor=color,
-                    linewidth=linewidth, zorder=1,
+                    width=layer.thickness, facecolor=VOLUME_COLORS.get(layer.system, "none"),
+                    edgecolor=color, linewidth=linewidth, zorder=1,
                 )
             )
         elif isinstance(layer, LineLayer):
@@ -114,11 +184,15 @@ def _rings_by_layer(layers) -> dict[tuple[str, int], CaloRing]:
 
 def _draw_deposits(ax, deposits, layers) -> None:
     """Each deposit as a filled wedge covering its own cell, shaded by energy
-    -- the calorimeter's actual readout granularity, rather than a point."""
+    -- the calorimeter's actual readout granularity, rather than a point.
+    Colored per subsystem (ECAL red, HCAL orange -- see `ENERGY_CMAPS`) so a
+    shower's system is legible at a glance, on top of that system's own pale
+    volume tint."""
     rings = _rings_by_layer(layers)
     if not len(deposits) or not rings:
         return
-    cmap = plt.get_cmap(ENERGY_CMAP)
+    cmaps = {system: plt.get_cmap(name) for system, name in ENERGY_CMAPS.items()}
+    default_cmap = plt.get_cmap(ENERGY_CMAP)
     norm = Normalize(vmin=0.0, vmax=float(deposits["energy"].max()) or 1.0)
 
     for _, deposit in deposits.iterrows():
@@ -130,6 +204,7 @@ def _draw_deposits(ax, deposits, layers) -> None:
         # cells carry a per-mille of its energy, and drawing them at full
         # opacity makes every shower look several times wider than it is
         shade = float(norm(deposit["energy"]))
+        cmap = cmaps.get(deposit["system"], default_cmap)
         ax.add_patch(
             Wedge(
                 ring.center, ring.radius + 0.5 * ring.thickness,
@@ -173,8 +248,13 @@ def plot_event(
     `layers:` plane), drawn as a solid line. A `CircleLayer` is the idealized
     bare surface of a whole layer (`mode: simplified`, no individual sensors to
     show), drawn dashed to mark it as a stand-in rather than real hardware. A
-    `CaloRing` is drawn as the radial slab it occupies, so its cells have
-    somewhere to sit.
+    `CaloRing` is drawn as the radial slab it occupies, tinted by subsystem
+    (ECAL pale yellow-green, HCAL pale blue -- `VOLUME_COLORS`) with its
+    energy deposits overlaid in a matching saturated hue (ECAL red, HCAL
+    orange -- `ENERGY_CMAPS`), so its cells have somewhere to sit and which
+    system they belong to is legible at a glance. The muon system gets one
+    overall pale background volume the same way, behind its individual
+    chamber planes.
 
     Pass ``field`` (a :class:`~detector2d.field.FieldRegions`) to draw the
     piecewise trajectory the particle actually followed -- bending one way in
