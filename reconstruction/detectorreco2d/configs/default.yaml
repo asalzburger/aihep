@@ -1,0 +1,13 @@
+# A generic, moderate resolution model: sigma = a + b / x (x = pt for the
+# track quantities, cluster energy for the cluster one) -- see
+# detectorreco2d.reconstruct.resolution. `a` is the asymptotic
+# high-energy/high-pt floor, `b` is what dominates at low pt/energy.
+track_resolution:
+  d0: { a: 0.05, b: 2.0 } # length units, same as the detector layout
+  phi0: { a: 0.001, b: 0.02 } # radians
+  pt: { a: 0.05, b: 1.0 } # same units as detectorsim2d's energy/pt
+
+cluster_resolution:
+  energy: { a: 0.05, b: 2.0 }
+
+seed: 7

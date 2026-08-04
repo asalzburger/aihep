@@ -34,6 +34,12 @@
 # --- Depend on viz_style only (plain hit points, no detector2d) ---
 -e ./tracking/hopfield_tracking
 
+# --- Depend on detectorsim2d/detector2d ---
+-e ./reconstruction/detectorreco2d
+
+# --- Depend on detectorsim2d/detectorreco2d/detector2d (+ viz_style) ---
+-e ./flavor_tagging
+
 # --- Script collections (no installable package of their own) ---
 -r ./clustering/soho/requirements.txt
 -r ./tracking/denby/requirements.txt

@@ -1,0 +1,16 @@
+[project]
+name = "detectorreco2d"
+version = "0.1.0"
+description = "Track/cluster reconstruction (Gaussian d0/phi0/pt and cluster-energy smearing) on top of detectorsim2d"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "pyarrow", "pyyaml"]
+# detector2d and detectorsim2d are sibling path packages (not on PyPI);
+# install them explicitly, see README.md -- listing them here would make
+# `pip install .` try to fetch them from PyPI and fail.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["detectorreco2d"]

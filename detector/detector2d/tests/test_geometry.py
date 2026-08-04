@@ -55,3 +55,37 @@ def test_circle_layer_is_a_plain_value_holder():
     assert layer.center == (1.0, 1.0)
     assert layer.radius == 50.0
     assert layer.pitch == 2.0
+
+
+def test_d0_is_zero_for_a_trajectory_through_the_origin():
+    straight = Trajectory(x0=0.0, y0=0.0, phi0=0.7)
+    curved = Trajectory(x0=0.0, y0=0.0, phi0=0.7, radius=12.0)
+    assert straight.d0 == pytest.approx(0.0)
+    assert curved.d0 == pytest.approx(0.0, abs=1e-9)
+
+
+def test_d0_straight_trajectory_matches_perpendicular_distance():
+    # vertical line x=5, heading north: perpendicular distance from the
+    # origin is exactly 5.
+    traj = Trajectory(x0=5.0, y0=0.0, phi0=math.pi / 2)
+    assert traj.d0 == pytest.approx(5.0)
+
+
+def test_d0_sign_flips_for_the_mirrored_trajectory():
+    left = Trajectory(x0=5.0, y0=0.0, phi0=math.pi / 2)
+    right = Trajectory(x0=-5.0, y0=0.0, phi0=math.pi / 2)
+    assert left.d0 == pytest.approx(-right.d0)
+
+
+def test_d0_curved_trajectory_matches_center_distance_minus_radius():
+    traj = Trajectory(x0=5.0, y0=0.0, phi0=0.0, radius=10.0)
+    cx, cy = traj.center
+    expected = math.copysign(1.0, traj.radius) * (abs(traj.radius) - math.hypot(cx, cy))
+    assert traj.d0 == pytest.approx(expected)
+
+
+def test_d0_is_continuous_between_curved_and_straight_in_the_large_radius_limit():
+    x0, y0, phi0 = 3.0, -2.0, 0.9
+    straight = Trajectory(x0=x0, y0=y0, phi0=phi0)
+    huge_radius = Trajectory(x0=x0, y0=y0, phi0=phi0, radius=1.0e8)
+    assert huge_radius.d0 == pytest.approx(straight.d0, abs=1e-4)

@@ -24,6 +24,8 @@ as packages are added or their dependencies change.
 | `hopfield_tracking` | `viz_style` (plain `(x, y)` hit points, no `detector2d` dependency) |
 | `denby` (scripts) | `detector2d`, `detectorsim2d`, `hopfield_tracking` |
 | `soho` (scripts) | -- |
+| `detectorreco2d` | `detector2d`, `detectorsim2d` |
+| `flavor_tagging` | `detector2d`, `detectorsim2d`, `detectorreco2d`, `viz_style` |
 
 Nothing here is circular, and each package's `pyproject.toml`/
 `requirements.txt` deliberately omits its local (sibling) dependencies --
@@ -46,7 +48,8 @@ they're installed explicitly as path installs (see [Install](#install)) so
 | [`tracking/graphs`](tracking/graphs) | Builds candidate track graphs (nodes = hits, edges = candidate connections) from `detectorsim2d` hits under a configurable, YAML-driven prescription (fully-connected / regional / explicit rules), with optional ground-truth edge labeling. |
 | [`tracking/hopfield_tracking`](tracking/hopfield_tracking) | From-scratch reimplementation of Denby (1988)'s Hopfield-network track finder. Works on plain `(x, y)` hit points -- no `detector2d` dependency. |
 | [`tracking/denby`](tracking/denby) | Recreates the Denby (1988) paper's own worked example end to end: harmonizes the detector drawn in the paper's figure, fits the 4-track event back into particle parameters, re-simulates it through `detectorsim2d`, and runs `hopfield_tracking` on it. Script collection, not an installable package. |
-| [`flavor_tagging`](flavor_tagging) | Not started yet -- currently just a reference PDF (`resources/Z-bb-LEP.pdf`) on LEP-era b-tagging. |
+| [`reconstruction/detectorreco2d`](reconstruction/detectorreco2d) | Turns `detectorsim2d` truth into tracks/clusters: every charged particle's `(d0, phi0, pt)` and every showering particle's calorimeter energy, each smeared by a Gaussian whose width shrinks with energy (`sigma = a + b / x`). Muons get no special treatment here (charged like anything else); they're excluded from cluster reconstruction instead, since a MIP trail isn't a shower. |
+| [`flavor_tagging`](flavor_tagging) | Worked flavor-tagging example on top of `detectorsim2d`'s `jets` gun mode and `detectorreco2d`: b-jets get a displaced-vertex-shifted impact parameter, ~20% more tracks, ~15% higher pt, and a muon far more often than light jets (15% vs. 2%, standing in for semileptonic B decay). Validation plots check the reconstructed pipeline reproduces its own configured knobs. |
 
 ## Install
 
