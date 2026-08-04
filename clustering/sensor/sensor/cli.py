@@ -110,6 +110,7 @@ def _cmd_analyse(args: argparse.Namespace) -> None:
             types=tuple(args.type),
             axis=tuple(args.axis),
             bins=args.bins,
+            range_pitch=args.range_pitch if args.range_pitch > 0 else None,
             hits=hits,
             contributions=contributions,
             theme=theme,
@@ -231,7 +232,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=["x", "y"],
         help="Axis/axes for the residual plot (default: both)",
     )
-    analyse_p.add_argument("--bins", type=int, default=50, help="Histogram bin count for the residual plot")
+    analyse_p.add_argument("--bins", type=int, default=60, help="Histogram bin count for the residual plot")
+    analyse_p.add_argument(
+        "--range-pitch",
+        type=float,
+        default=3.0,
+        help="Residual histogram x-range is +/- this many pixel pitches (that axis' own "
+        "pitch_x_um/pitch_y_um); pass a negative number to fall back to autoranging on the data",
+    )
     analyse_p.add_argument(
         "--save-dir", default=None, help="Directory to save one PNG per plot into, instead of showing interactively"
     )

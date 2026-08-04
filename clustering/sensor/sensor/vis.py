@@ -416,7 +416,8 @@ def plot_residual(
     detector: DetectorConfig,
     types: tuple[str, ...] = ("charge",),
     axis: tuple[str, ...] = ("x", "y"),
-    bins: int = 50,
+    bins: int = 60,
+    range_pitch: float | None = 3.0,
     hits: pd.DataFrame | None = None,
     contributions: pd.DataFrame | None = None,
     theme: Theme | None = None,
@@ -428,6 +429,13 @@ def plot_residual(
         and "digital" (unweighted centroid) — pass both to overlay them for
         a direct comparison of the two reconstruction schemes.
     axis: one or both of "x", "y".
+    bins: histogram bin count, shared by every subplot (default 60).
+    range_pitch: each axis' histogram range is +/- `range_pitch` * that
+        axis' own pixel pitch (`detector.pitch_x_um`/`pitch_y_um`) — default
+        3.0, i.e. +/-3 pixels, wide enough to show a mis-clustered outlier
+        tail without letting one stretch the axis to the point the core
+        distribution is unreadable. Pass `None` to fall back to matplotlib's
+        autoranging on the data instead.
     hits, contributions: if both given, truth particles are matched to
         clusters via the exact charge-contribution link instead of
         nearest-position (see `analysis.match_clusters_to_truth`) — the
@@ -440,16 +448,19 @@ def plot_residual(
         t: compute_residuals(clusters, truth, detector, type=t, hits=hits, contributions=contributions)
         for t in types
     }
+    pitch_um = {"x": detector.pitch_x_um, "y": detector.pitch_y_um}
 
     fig, axes = plt.subplots(1, len(axis), figsize=(5.5 * len(axis), 4), squeeze=False)
     axes = axes[0]
 
     for ax, a in zip(axes, axis):
+        hist_range = (-range_pitch * pitch_um[a], range_pitch * pitch_um[a]) if range_pitch is not None else None
         for t in types:
             values = residuals_by_type[t][f"residual_{a}_um"]
             ax.hist(
                 values,
                 bins=bins,
+                range=hist_range,
                 color=CENTROID_TYPE_COLOR[t],
                 alpha=0.6 if len(types) > 1 else 1.0,
                 label=f"{CENTROID_TYPE_LABEL[t]} (μ={values.mean():.2f}, σ={values.std():.2f})",
