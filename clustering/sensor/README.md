@@ -205,7 +205,13 @@ Flags:
   definition(s) the residual plot uses; pass both to overlay them.
 - `--axis {x,y}...` (default: both) — which axis/axes the residual plot
   shows (one subplot each).
-- `--bins` (default `50`) — histogram bin count for the residual plot.
+- `--bins` (default `60`) — histogram bin count for the residual plot.
+- `--range-pitch` (default `3.0`) — the residual plot's x-range is
+  `+/- range_pitch` pixel pitches (that axis' own `pitch_x_um`/`pitch_y_um`
+  from the detector config), so the x and y subplots aren't forced to the
+  same scale and an outlier tail can't stretch the axis until the core
+  distribution is unreadable. Pass a value `<= 0` to fall back to
+  matplotlib's autoranging on the data instead.
 
 ### Residuals
 

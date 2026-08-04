@@ -16,6 +16,7 @@ from sensor.vis import (
     _zoom_pixel_bounds,
     plot_event,
     plot_event_3d,
+    plot_residual,
 )
 
 
@@ -428,3 +429,56 @@ def test_plot_event_3d_hit_pixel_colors_come_from_the_charge_colormap():
     # 6 faces share that pixel's color, so it should appear (at least) 6 times
     matches = [c for c in hit_layer.get_facecolor() if tuple(c) == expected_top]
     assert len(matches) == 6
+
+
+def _one_particle_truth_and_cluster(detector, residual_x_um=10.0, residual_y_um=10.0):
+    truth = pd.DataFrame(
+        [
+            dict(
+                event_id=0, particle_id=0, x0_um=100.0, y0_um=200.0, dxdz=0.0, dydz=0.0,
+                charge_deposited=1.0, path_length_um=150.0,
+            )
+        ],
+        columns=TRUTH_COLUMNS,
+    )
+    x_centroid, y_centroid = 100.0 + residual_x_um, 200.0 + residual_y_um
+    clusters = pd.DataFrame(
+        [
+            dict(
+                event_id=0, cluster_id=0, n_pixels=1, charge_sum=1.0,
+                x_centroid_um=x_centroid, y_centroid_um=y_centroid,
+                x_centroid_digital_um=x_centroid, y_centroid_digital_um=y_centroid,
+                x_span_pixels=1, y_span_pixels=1,
+            )
+        ],
+        columns=CLUSTERS_COLUMNS,
+    )
+    return truth, clusters
+
+
+def test_plot_residual_defaults_to_60_bins_spanning_3_pitches_each_way():
+    detector = DetectorConfig()  # pitch_x_um=25, pitch_y_um=50
+    truth, clusters = _one_particle_truth_and_cluster(detector)
+    fig = plot_residual(clusters, truth, detector, axis=("x", "y"))
+    ax_x, ax_y = fig.axes
+
+    assert len(ax_x.patches) == 60
+    assert len(ax_y.patches) == 60
+
+    assert ax_x.patches[0].get_x() == pytest.approx(-3 * detector.pitch_x_um)
+    last_x = ax_x.patches[-1]
+    assert last_x.get_x() + last_x.get_width() == pytest.approx(3 * detector.pitch_x_um)
+
+    assert ax_y.patches[0].get_x() == pytest.approx(-3 * detector.pitch_y_um)
+    last_y = ax_y.patches[-1]
+    assert last_y.get_x() + last_y.get_width() == pytest.approx(3 * detector.pitch_y_um)
+
+
+def test_plot_residual_range_pitch_none_falls_back_to_autoranging_on_the_data():
+    detector = DetectorConfig()
+    # a residual far outside the default +/-3 pitch window
+    truth, clusters = _one_particle_truth_and_cluster(detector, residual_x_um=1000.0, residual_y_um=0.0)
+    fig = plot_residual(clusters, truth, detector, axis=("x",), range_pitch=None)
+    ax = fig.axes[0]
+    last = ax.patches[-1]
+    assert last.get_x() + last.get_width() > 3 * detector.pitch_x_um
