@@ -212,14 +212,24 @@ def hits_for_particles(
 
 
 def _sample_particle(
-    rng: np.random.Generator, gun: ParticleGunConfig, field_bz: float, k: float, phi0: float | None = None
+    rng: np.random.Generator,
+    gun: ParticleGunConfig,
+    field_bz: float,
+    k: float,
+    phi0: float | None = None,
+    vertex: tuple[float, float] | None = None,
 ) -> dict:
     """One particle: vertex and pt from `gun`, species drawn from
     `gun.species` (or a bare charged stub if empty), and `phi0` -- drawn
     uniformly from `gun.phi_min`/`phi_max` if not given explicitly (the
-    `jets`-mode caller passes one instead, clustered around a jet axis)."""
-    x0 = gun.vertex_x + (rng.uniform(-gun.vertex_spread_x, gun.vertex_spread_x) if gun.vertex_spread_x else 0.0)
-    y0 = gun.vertex_y + (rng.uniform(-gun.vertex_spread_y, gun.vertex_spread_y) if gun.vertex_spread_y else 0.0)
+    `jets`-mode caller passes one instead, clustered around a jet axis).
+    `vertex`, if given, overrides `gun.vertex_x`/`gun.vertex_y` outright (the
+    `jets`-mode caller passes a b-jet's displaced decay point instead)."""
+    if vertex is not None:
+        x0, y0 = vertex
+    else:
+        x0 = gun.vertex_x + (rng.uniform(-gun.vertex_spread_x, gun.vertex_spread_x) if gun.vertex_spread_x else 0.0)
+        y0 = gun.vertex_y + (rng.uniform(-gun.vertex_spread_y, gun.vertex_spread_y) if gun.vertex_spread_y else 0.0)
     if phi0 is None:
         phi0 = rng.uniform(gun.phi_min, gun.phi_max)
     pt = rng.uniform(gun.pt_min, gun.pt_max)
@@ -241,11 +251,27 @@ def _sample_particle(
     )
 
 
-def _jet_axes(rng: np.random.Generator, gun: ParticleGunConfig) -> list[float]:
-    """2-4 (`jet_count_min`-`jet_count_max`) jet directions for one event,
-    each drawn uniformly from the gun's own `phi_min`/`phi_max`."""
+def _jet_axes(rng: np.random.Generator, gun: ParticleGunConfig) -> list[dict]:
+    """2-4 (`jet_count_min`-`jet_count_max`) jets for one event: each one's
+    `phi` axis direction (drawn uniformly from the gun's own `phi_min`/
+    `phi_max`) and its own `vertex`. With probability `b_jet_fraction` a jet
+    is a "b-jet": its vertex is displaced from the primary vertex along its
+    own axis by a flight length drawn uniformly from `b_jet_decay_length_min`/
+    `b_jet_decay_length_max`, standing in for an invisible parent particle
+    decaying somewhere inside the tracker volume; otherwise its vertex is
+    just the primary vertex, same as any other jet."""
     n_jets = int(rng.integers(gun.jet_count_min, gun.jet_count_max + 1))
-    return [rng.uniform(gun.phi_min, gun.phi_max) for _ in range(n_jets)]
+    axes = []
+    for _ in range(n_jets):
+        phi = rng.uniform(gun.phi_min, gun.phi_max)
+        is_b_jet = gun.b_jet_fraction > 0.0 and rng.random() < gun.b_jet_fraction
+        if is_b_jet:
+            decay_length = rng.uniform(gun.b_jet_decay_length_min, gun.b_jet_decay_length_max)
+            vertex = (gun.vertex_x + decay_length * math.cos(phi), gun.vertex_y + decay_length * math.sin(phi))
+        else:
+            vertex = (gun.vertex_x, gun.vertex_y)
+        axes.append(dict(phi=phi, vertex=vertex, is_b_jet=is_b_jet))
+    return axes
 
 
 def _anomaly_particles(
@@ -298,8 +324,14 @@ def sample_particles(rng: np.random.Generator, config: SimConfig, event_id: int)
         rows = []
         for particle_id in range(gun.n_particles):
             axis = axes[int(rng.integers(0, len(axes)))]
-            phi0 = axis + rng.normal(0.0, gun.jet_cone_sigma)
-            rows.append(dict(event_id=event_id, particle_id=particle_id, **_sample_particle(rng, gun, bz, k, phi0)))
+            phi0 = axis["phi"] + rng.normal(0.0, gun.jet_cone_sigma)
+            rows.append(
+                dict(
+                    event_id=event_id,
+                    particle_id=particle_id,
+                    **_sample_particle(rng, gun, bz, k, phi0, vertex=axis["vertex"]),
+                )
+            )
     else:
         rows = [
             dict(event_id=event_id, particle_id=particle_id, **_sample_particle(rng, gun, bz, k))
