@@ -66,6 +66,16 @@ optional; with no `--config`, the layout defaults to an empty layer list
 `configs/full_detector.yaml` is the whole detector (tracker + ECAL + HCAL +
 muon system, piecewise field); `configs/barrel6.yaml` and
 `configs/default.yaml` are the tracker-only layouts, unchanged.
+`configs/jets.yaml` and `configs/anomaly.yaml` are the full detector with the
+gun in `jets`/`anomaly` mode -- see "Gun modes" below.
+
+`--mode {standard,jets,anomaly}` overrides `gun.mode` from the config for
+this run, so any config can be tried in any mode without editing the YAML:
+
+```bash
+.venv/bin/python -m detectorsim2d.cli run \
+  --config configs/full_detector.yaml --mode jets --n-events 20 --output-dir out/
+```
 
 ## Visualize an event
 
@@ -185,6 +195,52 @@ radius is too small to escape the tracker circles forever. The shipped gun's
 `pt_min: 20` is deliberately low enough that some particles do exactly that
 and never reach the calorimeter at all; it's a real effect, and one
 downstream code has to cope with.
+
+### Gun modes
+
+`gun.mode` (default `standard`) selects the *event topology* -- how the
+`n_particles` particles the gun draws each event are aimed, on top of
+whatever species/pt sampling is already configured:
+
+| mode | what changes |
+|---|---|
+| `standard` | Every particle's `phi0` is drawn independently and uniformly from `phi_min`/`phi_max` -- the original behaviour. |
+| `jets` | Same `n_particles` multiplicity, but grouped: 2-4 jet axes are drawn per event, each particle is assigned to one and offset from it by a small Gaussian jitter, producing collimated sprays instead of a uniform spray. |
+| `anomaly` | Samples exactly like `standard`, then -- with probability `anomaly_rate` per event -- overlays an injected, unphysical cluster: two high-energy calorimeter showers lined up back-to-back, with a mu+ mu- pair emitted along the same axis. A planted signal for exercising anomaly-detection algorithms against, not a physical process. |
+
+```yaml
+gun:
+  mode: jets              # standard (default) | jets | anomaly
+
+  # jets mode
+  jet_count_min: 2         # number of jet axes per event, drawn from [min, max]
+  jet_count_max: 4
+  jet_cone_sigma: 0.15     # radians -- angular (phi) spread of a jet's particles about its axis
+
+  # anomaly mode
+  anomaly_rate: 0.3           # probability, per event, that the cluster below is injected
+  anomaly_calo_species: photon   # species for the two back-to-back calorimeter showers (em or hadron)
+  anomaly_calo_scale: 2.0     # calo shower energy = pt_max * this
+  anomaly_muon_scale: 1.5     # mu+/mu- energy = pt_max * this
+  anomaly_axis_jitter: 0.0    # radians of random jitter around the shared axis; 0.0 = exactly lined up
+```
+
+`jets` mode only changes each particle's direction -- species, pt, and vertex
+are still drawn exactly as `standard` would, so "standard particle
+multiplicities, grouped into jets" is literal: the same gun, aimed
+differently.
+
+`anomaly` mode's injected cluster is four extra particles from one shared
+vertex: `anomaly_calo_species` at the jet-less axis and again at `axis + π`
+(the "lined up" calorimeter activity -- see `configs/anomaly.yaml`'s worked
+example above), plus a `mu+` at the first direction and a `mu-` at the
+second, so each muon exits collinear with one of the two showers. Energies
+are set as multiples of `pt_max` rather than absolute numbers so the cluster
+reads as "high energetic" whatever a given config's `pt_min`/`pt_max` are
+tuned to. `anomaly_calo_species` must be `em` or `hadron` (see
+`detectorsim2d.species`) -- an EM species (the default, `photon`) gives a
+single, fully-contained ECAL shower per arm; a hadron species also lights up
+the HCAL.
 
 ## Calorimeter response
 
@@ -378,3 +434,14 @@ neutron leaves nothing before the HCAL; that a muon gets exactly 9 muon hits
 and reverses its curvature in the flux return; and that a shower aimed at a
 cell boundary splits *exactly* evenly in the unstaggered ECAL layers while the
 staggered one resolves it.
+
+`test_simulate.py`'s gun-mode cases pin the "Gun modes" table above: an
+unknown `mode` is rejected at construction; `jets` keeps the standard
+multiplicity but collapses `phi0` into `jet_count_min`/`jet_count_max`
+clusters no wider than `jet_cone_sigma`; `anomaly` never injects at
+`anomaly_rate=0.0`, injects exactly the four-particle back-to-back
+calo+dimuon cluster at `anomaly_rate=1.0` (checked species, energies, and
+that both muons land exactly on one of the two photon directions), and
+otherwise samples identically to `standard`. `test_config.py` additionally
+checks that `configs/jets.yaml`/`configs/anomaly.yaml` parse their `gun.mode`
+and mode-specific keys correctly.

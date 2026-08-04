@@ -1,0 +1,114 @@
+# The full detector (see full_detector.yaml) with the gun in `anomaly` mode:
+# samples exactly like `standard`, then -- with probability `anomaly_rate`
+# per event -- overlays a planted, unphysical cluster: two `photon` showers
+# lined up back-to-back in the calorimeter, with a mu+ mu- pair emitted along
+# the same axis. It's a synthetic signal for exercising anomaly-detection
+# algorithms against, not a physical process; the interesting thing about it
+# is exactly that it does *not* look like the rest of the events.
+#
+# The point of the layout is that the three particle classes stop in three
+# different places, which is the only reason a detector can tell them apart:
+#
+#   e+- / gamma / pi0   shower in the ECAL and stop there
+#   pi+- / neutron      cross the ECAL (ionizing, if charged) and shower in the HCAL
+#   mu+-                ionize their way through both and are alone in the muon system
+#
+# Lengths are in the same arbitrary unit as barrel6.yaml, whose tracker this
+# reuses verbatim.
+
+# --- tracker: 6 barrel layers, r = 29 .. 200 ---------------------------------
+detector:
+  mode: detailed
+  layers:
+    - {layer_id: 0, radius: 29.0,  kind: precision}
+    - {layer_id: 1, radius: 48.0,  kind: precision}
+    - {layer_id: 2, radius: 68.0,  kind: precision}
+    - {layer_id: 3, radius: 100.0, kind: outer}
+    - {layer_id: 4, radius: 140.0, kind: outer}
+    - {layer_id: 5, radius: 200.0, kind: outer}
+  module_types:
+    precision: {half_length: 4.0, tilt_deg: 10.0, overlap_fraction: 0.15, pitch: 0.1}
+    outer:     {half_length: 8.0, tilt_deg: 8.0,  overlap_fraction: 0.10, pitch: 0.5}
+
+# --- calorimeters ------------------------------------------------------------
+# The ECAL is finely segmented in phi because an EM shower is narrow and its
+# position is the measurement. Its middle layer is shifted by half a cell
+# (phi_stagger) so that a shower landing exactly on a cell boundary in layers
+# 0 and 2 -- the worst case, its energy split between two cells -- lands in
+# the *middle* of a layer-1 cell instead. The HCAL is coarser: hadronic
+# showers are broad, so fine cells would buy nothing.
+calorimeter:
+  ecal:
+    layer_id_base: 100
+    r_inner: 210.0
+    n_layers: 3
+    thickness: 30.0        # rings at r = 225, 255, 285; stack spans 210..300
+    n_phi: 256
+    phi_stagger: [0.0, 0.5, 0.0]
+  hcal:
+    layer_id_base: 200
+    r_inner: 300.0
+    n_layers: 2
+    thickness: 80.0        # rings at r = 340, 420; stack spans 300..460
+    n_phi: 64
+
+# --- muon system: 3 octagonal triplet stations -------------------------------
+# Each of the octagon's 8 sides is a triplet -- 3 closely spaced parallel
+# planes -- so one crossing gives three measurements and a local direction.
+# layer_ids: 300/301/302, 310/311/312, 320/321/322.
+muon:
+  layer_id_base: 300
+  apothem_inner: 520.0
+  station_spacing: 100.0   # stations at apothem 520, 620, 720
+  n_stations: 3
+  n_planes: 3
+  n_sides: 8
+  triplet_gap: 8.0
+  pitch: 2.0
+
+# --- field -------------------------------------------------------------------
+# Strong inside the solenoid, none in the calorimeters, and half strength
+# *reversed* in the muon system where the flux returns -- so a track that
+# curls one way in the tracker curls the other way out here.
+field:
+  k: 0.2998
+  regions:
+    - {r_max: 210.0, bz:  2.0}   # tracker
+    - {r_max: 480.0, bz:  0.0}   # ECAL + HCAL
+    - {bz: -1.0}                 # muon system (reflux)
+
+# --- calorimeter response ----------------------------------------------------
+response:
+  em:     {layer_fractions: [0.60, 0.28, 0.12], sigma_cells: 1.5, sigma_growth: 0.5}
+  hadron: {layer_fractions: [0.65, 0.35],       sigma_cells: 1.0, sigma_growth: 0.4}
+  mip_energy: {ecal: 0.3, hcal: 0.8}   # absolute, does not scale with energy
+  stochastic: {ecal: 0.10, hcal: 0.50} # sigma_E/E = a/sqrt(E); set to 0 for exact energies
+
+# --- gun ---------------------------------------------------------------------
+# pt_min is deliberately low enough that some particles curl up inside the
+# tracker and never reach the calorimeter at all -- a real effect, and a
+# useful one to see.
+gun:
+  mode: anomaly
+  anomaly_rate: 0.5           # fraction of events that get the injected cluster
+  anomaly_calo_species: photon
+  anomaly_calo_scale: 2.0     # calo shower energy = pt_max * this
+  anomaly_muon_scale: 1.5     # muon energy = pt_max * this
+  anomaly_axis_jitter: 0.0    # 0.0 = exactly lined up back-to-back
+  n_particles: 8
+  vertex_x: 0.0
+  vertex_y: 0.0
+  vertex_spread_x: 0.0
+  vertex_spread_y: 0.0
+  phi_min: -3.14159
+  phi_max: 3.14159
+  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron, "mu+", "mu-"]
+  pt_min: 20.0
+  pt_max: 300.0
+
+# n_events > 1 recommended, so a run has a decent chance of containing an
+# anomalous event at anomaly_rate=0.5
+n_events: 10
+seed: null
+world_radius: 800.0
+max_path_length: 4000.0

@@ -37,6 +37,10 @@ class FieldConfig:
     k: float = 0.2998  # R[len] = pt / (k * |q| * bz); see detector2d.field.signed_radius
 
 
+#: The three gun topologies -- see `ParticleGunConfig.mode`.
+GUN_MODES: tuple[str, ...] = ("standard", "jets", "anomaly")
+
+
 @dataclass
 class ParticleGunConfig:
     n_particles: int = 1
@@ -56,6 +60,51 @@ class ParticleGunConfig:
     charges: tuple[float, ...] = (-1.0, 1.0)
     pt_min: float = 1.0
     pt_max: float = 10.0
+
+    #: Event topology -- one of `GUN_MODES`:
+    #:
+    #: - ``"standard"`` (default): every particle's `phi0` is drawn
+    #:   independently and uniformly from ``phi_min``/``phi_max`` -- the
+    #:   original behaviour.
+    #: - ``"jets"``: the same ``n_particles`` multiplicity, but each particle
+    #:   is assigned to one of a handful of jet axes (see `jet_count_min`/
+    #:   `jet_count_max`) instead of an independent direction, so particles
+    #:   cluster into 2-4 collimated sprays.
+    #: - ``"anomaly"``: samples exactly like ``"standard"``, then -- with
+    #:   probability `anomaly_rate` per event -- overlays an injected,
+    #:   unphysical topology: two high-energy calorimeter showers lined up
+    #:   back-to-back, with a mu+ mu- pair emitted along the same axis. Meant
+    #:   as a planted signal for exercising anomaly-detection algorithms, not
+    #:   a physical process.
+    mode: str = "standard"
+
+    #: `jets` mode: the number of jet axes per event is drawn uniformly from
+    #: [`jet_count_min`, `jet_count_max`].
+    jet_count_min: int = 2
+    jet_count_max: int = 4
+    #: `jets` mode: angular (phi) spread of a jet's particles about its axis,
+    #: in radians -- the jet "cone" width.
+    jet_cone_sigma: float = 0.15
+
+    #: `anomaly` mode: probability, per event, that the anomalous cluster is
+    #: injected on top of the standard particles.
+    anomaly_rate: float = 0.3
+    #: `anomaly` mode: species used for the two back-to-back calorimeter
+    #: showers (must be an EM or hadron species; see `detectorsim2d.species`).
+    anomaly_calo_species: str = "photon"
+    #: `anomaly` mode: energy of the calorimeter showers / muons, each as a
+    #: multiple of `pt_max` -- scaled off the gun's own range rather than an
+    #: absolute number, so the anomaly reads as "high energetic" regardless
+    #: of how a given config's `pt_min`/`pt_max` are tuned.
+    anomaly_calo_scale: float = 2.0
+    anomaly_muon_scale: float = 1.5
+    #: `anomaly` mode: random jitter (radians) added to each of the four
+    #: particles' `phi0` around the shared axis. 0.0 means exactly lined up.
+    anomaly_axis_jitter: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.mode not in GUN_MODES:
+            raise ValueError(f"unknown gun mode {self.mode!r}; known: {', '.join(GUN_MODES)}")
 
     @property
     def species_probabilities(self) -> list[float] | None:

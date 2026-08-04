@@ -3,12 +3,14 @@ from pathlib import Path
 import pytest
 from detector2d.calorimeter import CaloRing
 from detector2d.geometry import CircleLayer, LineLayer
-from detectorsim2d.config import SimConfig, load_config
+from detectorsim2d.config import GUN_MODES, ParticleGunConfig, SimConfig, load_config
 
 CONFIGS = Path(__file__).resolve().parent.parent / "configs"
 CONFIG_PATH = CONFIGS / "default.yaml"
 BARREL6_CONFIG_PATH = CONFIGS / "barrel6.yaml"
 FULL_DETECTOR_CONFIG_PATH = CONFIGS / "full_detector.yaml"
+JETS_CONFIG_PATH = CONFIGS / "jets.yaml"
+ANOMALY_CONFIG_PATH = CONFIGS / "anomaly.yaml"
 
 
 def test_defaults_with_no_config():
@@ -124,6 +126,34 @@ def test_scalar_field_still_parses_as_one_constant_field(tmp_path):
     assert config.magnetic_field.bz == 1.5
     assert config.magnetic_field.k == 0.3
     assert config.field_regions is None  # not a piecewise map
+
+
+def test_gun_defaults_to_standard_mode():
+    assert ParticleGunConfig().mode == "standard"
+    assert GUN_MODES == ("standard", "jets", "anomaly")
+
+
+def test_unknown_gun_mode_is_rejected():
+    with pytest.raises(ValueError):
+        ParticleGunConfig(mode="not-a-mode")
+
+
+def test_load_jets_yaml_sets_jets_mode_and_jet_parameters():
+    config = load_config(JETS_CONFIG_PATH)
+    assert config.gun.mode == "jets"
+    assert config.gun.jet_count_min == 2
+    assert config.gun.jet_count_max == 4
+    assert config.gun.jet_cone_sigma == pytest.approx(0.1)
+    assert config.gun.n_particles == 24
+
+
+def test_load_anomaly_yaml_sets_anomaly_mode_and_anomaly_parameters():
+    config = load_config(ANOMALY_CONFIG_PATH)
+    assert config.gun.mode == "anomaly"
+    assert config.gun.anomaly_rate == pytest.approx(0.5)
+    assert config.gun.anomaly_calo_species == "photon"
+    assert config.gun.anomaly_calo_scale == pytest.approx(2.0)
+    assert config.gun.anomaly_muon_scale == pytest.approx(1.5)
 
 
 def test_detector_and_flat_layers_are_mutually_exclusive(tmp_path):
