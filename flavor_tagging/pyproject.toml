@@ -3,7 +3,7 @@ name = "flavor_tagging"
 version = "0.1.0"
 description = "Flavor-tagging worked example: jets/b-jets simulation, track/cluster reconstruction, and validation plots"
 requires-python = ">=3.10"
-dependencies = ["numpy", "pandas", "pyarrow", "pyyaml", "matplotlib"]
+dependencies = ["numpy", "pandas", "pyarrow", "pyyaml", "matplotlib", "torch", "scikit-learn"]
 # detector2d, detectorsim2d, detectorreco2d and viz_style are sibling path
 # packages (not on PyPI); install them explicitly, see README.md -- listing
 # them here would make `pip install .` try to fetch them from PyPI and fail.

@@ -3,4 +3,6 @@ pandas
 pyarrow
 pyyaml
 matplotlib
+torch
+scikit-learn
 pytest
