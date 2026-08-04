@@ -9,6 +9,7 @@ from detector2d.geometry import CircleLayer, LineLayer, Trajectory
 from detectorsim2d.config import FieldConfig, ParticleGunConfig, SimConfig
 from detectorsim2d.edm import PARTICLES_COLUMNS
 from detectorsim2d.simulate import boundary_crossing_s, hits_for_particles, sample_particles, simulate_events
+from detectorsim2d.species import get as get_species
 
 
 def _particle_row(**overrides):
@@ -169,3 +170,116 @@ def test_simulate_events_end_to_end():
     assert np.isinf(particles["radius"]).all()  # bz=0 -> straight (signed_radius returns inf)
     assert len(hits) == 15  # every straight, shallow-angle particle crosses the one layer
     assert set(hits["event_id"]) == {0, 1, 2}
+
+
+# --- gun modes ----------------------------------------------------------------
+
+
+def test_unknown_gun_mode_is_rejected():
+    with pytest.raises(ValueError):
+        ParticleGunConfig(mode="bogus")
+
+
+def test_standard_mode_is_the_default():
+    assert ParticleGunConfig().mode == "standard"
+
+
+def test_jets_mode_keeps_the_standard_particle_multiplicity():
+    config = SimConfig(gun=ParticleGunConfig(n_particles=17, mode="jets"))
+    rows = sample_particles(np.random.default_rng(0), config, event_id=0)
+    assert len(rows) == 17
+
+
+def test_jets_mode_groups_particles_into_a_handful_of_collimated_axes():
+    # a wide phi range and a tiny cone_sigma make each jet's particles land
+    # in a tight cluster well separated from the others, so sorting phi0 and
+    # looking for the gaps recovers exactly jet_count_min/_max clusters.
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=200,
+            mode="jets",
+            jet_count_min=3,
+            jet_count_max=3,
+            jet_cone_sigma=0.01,
+            phi_min=-3.0,
+            phi_max=3.0,
+            pt_min=1.0,
+            pt_max=1.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(0), config, event_id=0)
+    phis = sorted(row["phi0"] for row in rows)
+    n_clusters = 1 + sum(1 for a, b in zip(phis, phis[1:]) if b - a > 0.1)
+    assert n_clusters == 3
+
+
+def test_jets_mode_particles_stay_tight_around_their_jet_axis():
+    # a single jet (jet_count_min == jet_count_max == 1): every particle in
+    # the event shares one axis, so their phi0 spread should be of order
+    # jet_cone_sigma, not of order the gun's full phi_min/phi_max range.
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=100,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            jet_cone_sigma=0.05,
+            phi_min=-3.0,
+            phi_max=3.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(3), config, event_id=0)
+    phis = np.array([row["phi0"] for row in rows])
+    assert phis.std() < 0.2  # << the 6-radian phi_min/phi_max span
+
+
+def test_anomaly_mode_never_injects_when_rate_is_zero():
+    config = SimConfig(gun=ParticleGunConfig(n_particles=3, mode="anomaly", anomaly_rate=0.0))
+    rows = sample_particles(np.random.default_rng(2), config, event_id=0)
+    assert len(rows) == 3
+
+
+def test_anomaly_mode_injects_a_lined_up_calo_and_dimuon_cluster_when_rate_is_one():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=3,
+            mode="anomaly",
+            anomaly_rate=1.0,
+            anomaly_calo_species="photon",
+            anomaly_calo_scale=2.0,
+            anomaly_muon_scale=1.5,
+            pt_min=10.0,
+            pt_max=10.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(1), config, event_id=0)
+    assert len(rows) == 3 + 4  # the 3 standard particles, plus the injected cluster
+
+    extra = rows[3:]
+    species_counts = {name: [row["species"] for row in extra].count(name) for name in ("photon", "mu+", "mu-")}
+    assert species_counts == {"photon": 2, "mu+": 1, "mu-": 1}
+
+    # the two photons are exactly back-to-back, and each muon lines up with
+    # (shares the axis of) one of them -- the "lined up" anomalous topology.
+    photon_phis = [row["phi0"] for row in extra if row["species"] == "photon"]
+    assert abs(math.remainder(photon_phis[1] - photon_phis[0], 2 * math.pi)) == pytest.approx(math.pi)
+    for row in extra:
+        if row["species"] in ("mu+", "mu-"):
+            assert any(math.remainder(row["phi0"] - phi, 2 * math.pi) == pytest.approx(0.0) for phi in photon_phis)
+
+    # energies scale off pt_max, and are well above the standard particles'
+    photon_energy = get_species("photon")
+    assert all(row["energy"] == pytest.approx(20.0) for row in extra if row["species"] == "photon")
+    assert all(row["energy"] == pytest.approx(15.0) for row in extra if row["species"] in ("mu+", "mu-"))
+    assert photon_energy.charge == 0.0  # sanity: the calo species really is neutral
+
+
+def test_anomaly_mode_falls_back_to_standard_sampling_for_the_baseline_particles():
+    # with the injected cluster turned off, `anomaly` mode is indistinguishable
+    # from `standard` for the baseline n_particles (same rng draws).
+    gun_kwargs = dict(n_particles=6, phi_min=-1.0, phi_max=1.0, pt_min=2.0, pt_max=8.0)
+    standard = SimConfig(gun=ParticleGunConfig(mode="standard", **gun_kwargs))
+    anomaly = SimConfig(gun=ParticleGunConfig(mode="anomaly", anomaly_rate=0.0, **gun_kwargs))
+    rows_standard = sample_particles(np.random.default_rng(9), standard, event_id=0)
+    rows_anomaly = sample_particles(np.random.default_rng(9), anomaly, event_id=0)
+    assert rows_standard == rows_anomaly

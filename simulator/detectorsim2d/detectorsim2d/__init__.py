@@ -1,4 +1,4 @@
-from .config import FieldConfig, ParticleGunConfig, SimConfig, load_config
+from .config import GUN_MODES, FieldConfig, ParticleGunConfig, SimConfig, load_config
 from .edm import DEPOSITS_COLUMNS, HITS_COLUMNS, PARTICLES_COLUMNS
 from .response import ResponseConfig, ShowerProfile, sum_cells
 from .simulate import (
@@ -13,6 +13,7 @@ from .species import SPECIES, SPECIES_NAMES, Species
 __all__ = [
     "DEPOSITS_COLUMNS",
     "FieldConfig",
+    "GUN_MODES",
     "HITS_COLUMNS",
     "PARTICLES_COLUMNS",
     "ParticleGunConfig",

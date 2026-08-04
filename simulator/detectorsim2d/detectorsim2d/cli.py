@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 
-from .config import load_config
+from .config import GUN_MODES, load_config
 from .io import read_deposits, read_run, write_run
 from .simulate import simulate_events
 
@@ -22,6 +22,8 @@ def _cmd_run(args: argparse.Namespace) -> None:
         config.n_events = args.n_events
     if args.seed is not None:
         config.seed = args.seed
+    if args.mode is not None:
+        config.gun.mode = args.mode
 
     particles, hits, deposits = simulate_events(config)
     # a tracker-only config has no calorimeter, so write no deposits file
@@ -29,7 +31,7 @@ def _cmd_run(args: argparse.Namespace) -> None:
         args.output_dir, args.format, particles, hits, deposits if len(deposits) else None
     )
 
-    print(f"Simulated {config.n_events} event(s), seed={config.seed}")
+    print(f"Simulated {config.n_events} event(s), mode={config.gun.mode}, seed={config.seed}")
     print(f"  particles: {len(particles):>8} rows -> {paths['particles']}")
     print(f"  hits:      {len(hits):>8} rows -> {paths['hits']}")
     if "deposits" in paths:
@@ -84,6 +86,14 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--config", default=None, help="YAML config file (defaults if omitted)")
     run_p.add_argument("--n-events", type=int, default=None, help="Override n_events from config")
     run_p.add_argument("--seed", type=int, default=None, help="Override seed from config")
+    run_p.add_argument(
+        "--mode",
+        choices=GUN_MODES,
+        default=None,
+        help="Override gun.mode from config: standard (independent particles, the default), "
+        "jets (same multiplicity, grouped into 2-4 collimated sprays), "
+        "anomaly (standard, plus an injected back-to-back calo+dimuon cluster in some events)",
+    )
     run_p.add_argument("--output-dir", default="out", help="Directory to write particles/hits into")
     run_p.add_argument("--format", choices=["csv", "arrow"], default="csv")
     run_p.set_defaults(func=_cmd_run)

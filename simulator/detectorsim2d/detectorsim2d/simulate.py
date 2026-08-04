@@ -211,10 +211,17 @@ def hits_for_particles(
     return hits
 
 
-def _sample_particle(rng: np.random.Generator, gun: ParticleGunConfig, field_bz: float, k: float) -> dict:
+def _sample_particle(
+    rng: np.random.Generator, gun: ParticleGunConfig, field_bz: float, k: float, phi0: float | None = None
+) -> dict:
+    """One particle: vertex and pt from `gun`, species drawn from
+    `gun.species` (or a bare charged stub if empty), and `phi0` -- drawn
+    uniformly from `gun.phi_min`/`phi_max` if not given explicitly (the
+    `jets`-mode caller passes one instead, clustered around a jet axis)."""
     x0 = gun.vertex_x + (rng.uniform(-gun.vertex_spread_x, gun.vertex_spread_x) if gun.vertex_spread_x else 0.0)
     y0 = gun.vertex_y + (rng.uniform(-gun.vertex_spread_y, gun.vertex_spread_y) if gun.vertex_spread_y else 0.0)
-    phi0 = rng.uniform(gun.phi_min, gun.phi_max)
+    if phi0 is None:
+        phi0 = rng.uniform(gun.phi_min, gun.phi_max)
     pt = rng.uniform(gun.pt_min, gun.pt_max)
 
     if gun.species:
@@ -234,15 +241,77 @@ def _sample_particle(rng: np.random.Generator, gun: ParticleGunConfig, field_bz:
     )
 
 
-def sample_particles(rng: np.random.Generator, config: SimConfig, event_id: int) -> list[dict]:
-    return [
-        dict(
-            event_id=event_id,
-            particle_id=particle_id,
-            **_sample_particle(rng, config.gun, config.magnetic_field.bz, config.magnetic_field.k),
+def _jet_axes(rng: np.random.Generator, gun: ParticleGunConfig) -> list[float]:
+    """2-4 (`jet_count_min`-`jet_count_max`) jet directions for one event,
+    each drawn uniformly from the gun's own `phi_min`/`phi_max`."""
+    n_jets = int(rng.integers(gun.jet_count_min, gun.jet_count_max + 1))
+    return [rng.uniform(gun.phi_min, gun.phi_max) for _ in range(n_jets)]
+
+
+def _anomaly_particles(
+    rng: np.random.Generator, gun: ParticleGunConfig, field_bz: float, k: float, start_particle_id: int
+) -> list[dict]:
+    """The injected anomalous cluster: two `anomaly_calo_species` showers and
+    a mu+ mu- pair, all from one shared vertex and lined up back-to-back along
+    one random axis -- a planted signal, not a physical decay."""
+    x0 = gun.vertex_x + (rng.uniform(-gun.vertex_spread_x, gun.vertex_spread_x) if gun.vertex_spread_x else 0.0)
+    y0 = gun.vertex_y + (rng.uniform(-gun.vertex_spread_y, gun.vertex_spread_y) if gun.vertex_spread_y else 0.0)
+    axis = rng.uniform(-math.pi, math.pi)
+
+    calo = species_module.get(gun.anomaly_calo_species)
+    mu_plus, mu_minus = species_module.get("mu+"), species_module.get("mu-")
+    calo_energy = gun.pt_max * gun.anomaly_calo_scale
+    muon_energy = gun.pt_max * gun.anomaly_muon_scale
+
+    rows = []
+    for offset, (species, energy) in enumerate(
+        ((calo, calo_energy), (calo, calo_energy), (mu_plus, muon_energy), (mu_minus, muon_energy))
+    ):
+        direction = axis if offset % 2 == 0 else axis + math.pi
+        jitter = rng.uniform(-gun.anomaly_axis_jitter, gun.anomaly_axis_jitter) if gun.anomaly_axis_jitter else 0.0
+        phi0 = direction + jitter
+        radius = signed_radius(energy, species.charge, field_bz, k)
+        rows.append(
+            dict(
+                particle_id=start_particle_id + offset,
+                species=species.name,
+                pdg=species.pdg,
+                x0=x0,
+                y0=y0,
+                phi0=phi0,
+                charge=species.charge,
+                energy=energy,
+                radius=radius,
+            )
         )
-        for particle_id in range(config.gun.n_particles)
-    ]
+    return rows
+
+
+def sample_particles(rng: np.random.Generator, config: SimConfig, event_id: int) -> list[dict]:
+    """Sample one event's particles, dispatched on `config.gun.mode` (see
+    `ParticleGunConfig.mode` for what each does)."""
+    gun = config.gun
+    bz, k = config.magnetic_field.bz, config.magnetic_field.k
+
+    if gun.mode == "jets":
+        axes = _jet_axes(rng, gun)
+        rows = []
+        for particle_id in range(gun.n_particles):
+            axis = axes[int(rng.integers(0, len(axes)))]
+            phi0 = axis + rng.normal(0.0, gun.jet_cone_sigma)
+            rows.append(dict(event_id=event_id, particle_id=particle_id, **_sample_particle(rng, gun, bz, k, phi0)))
+    else:
+        rows = [
+            dict(event_id=event_id, particle_id=particle_id, **_sample_particle(rng, gun, bz, k))
+            for particle_id in range(gun.n_particles)
+        ]
+
+    if gun.mode == "anomaly" and rng.random() < gun.anomaly_rate:
+        rows.extend(
+            dict(event_id=event_id, **row) for row in _anomaly_particles(rng, gun, bz, k, len(rows))
+        )
+
+    return rows
 
 
 def simulate_events(
