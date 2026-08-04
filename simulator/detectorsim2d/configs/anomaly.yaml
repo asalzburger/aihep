@@ -92,7 +92,7 @@ gun:
   mode: anomaly
   anomaly_rate: 0.5           # fraction of events that get the injected cluster
   anomaly_calo_species: photon
-  anomaly_calo_scale: 0.0002     # calo shower energy = pt_max * this
+  anomaly_calo_scale: 2.0     # calo shower energy = pt_max * this
   anomaly_muon_scale: 1.5     # muon energy = pt_max * this
   anomaly_axis_jitter: 0.0    # 0.0 = exactly lined up back-to-back
   n_particles: 2

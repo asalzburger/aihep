@@ -144,7 +144,7 @@ def test_load_jets_yaml_sets_jets_mode_and_jet_parameters():
     assert config.gun.jet_count_min == 2
     assert config.gun.jet_count_max == 4
     assert config.gun.jet_cone_sigma == pytest.approx(0.1)
-    assert config.gun.n_particles == 24
+    assert config.gun.n_particles == 50
 
 
 def test_gun_b_jet_parameters_default_to_a_15_percent_displaced_fraction():
