@@ -1,19 +1,31 @@
-"""CLI entry point: simulate jets+b-jets, reconstruct them, and make the
-validation plots -- three subcommands mirroring the pipeline's own three
-stages.
+"""CLI entry point: simulate jets+b-jets, reconstruct them, make the
+validation plots, and train/evaluate the b-tagger -- five subcommands
+mirroring the pipeline's own stages. `train` and `evaluate` are meant to be
+pointed at two *separate* reconstructed runs (different seeds -- e.g.
+`out/reco_train` and `out/reco_test`), so `evaluate` measures generalization
+to an independent dataset rather than replaying the training set.
 
     python -m flavor_tagging.cli simulate --config configs/jets_bjets.yaml \\
-        --output-dir out/sim --format arrow --seed 42
+        --output-dir out/sim_train --format arrow --seed 42
+    python -m flavor_tagging.cli simulate --config configs/jets_bjets.yaml \\
+        --output-dir out/sim_test --format arrow --seed 4242
 
-    python -m flavor_tagging.cli reconstruct --sim-dir out/sim --config configs/reco.yaml \\
-        --output-dir out/reco --format arrow
+    python -m flavor_tagging.cli reconstruct --sim-dir out/sim_train --config configs/reco.yaml \\
+        --output-dir out/reco_train --format arrow
+    python -m flavor_tagging.cli reconstruct --sim-dir out/sim_test --config configs/reco.yaml \\
+        --output-dir out/reco_test --format arrow
 
-    python -m flavor_tagging.cli validate --reco-dir out/reco --format arrow --output-dir out/plots
+    python -m flavor_tagging.cli validate --reco-dir out/reco_train --format arrow --output-dir out/plots
+
+    python -m flavor_tagging.cli train --reco-dir out/reco_train --format arrow --output model.pt
+    python -m flavor_tagging.cli evaluate --model model.pt --reco-dir out/reco_test --format arrow \\
+        --save-dir out/tagger_plots
 """
 
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import numpy as np
 from detectorreco2d.config import load_config as load_reco_config
@@ -26,7 +38,9 @@ from detectorsim2d.io import read_run as read_sim_run
 from detectorsim2d.io import write_run as write_sim_run
 from detectorsim2d.simulate import simulate_events
 
+from .evaluate import evaluate_model, plot_confusion_matrix, plot_roc, plot_score_distribution
 from .pipeline import RECO_CONFIG_PATH, SIM_CONFIG_PATH
+from .train import load_checkpoint, save_checkpoint, train_model
 from .vis import make_validation_plots
 
 
@@ -82,6 +96,51 @@ def _cmd_validate(args: argparse.Namespace) -> None:
         print(f"  {name}: {path}")
 
 
+def _cmd_train(args: argparse.Namespace) -> None:
+    tracks, clusters = read_reco_run(args.reco_dir, args.format)
+    model, preprocessing, history = train_model(
+        tracks,
+        clusters,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        val_fraction=args.val_fraction,
+        lr=args.lr,
+        device=args.device,
+        seed=args.seed,
+    )
+    save_checkpoint(args.output, model, preprocessing)
+    print(
+        f"\nSaved model to {args.output} "
+        f"({preprocessing['n_track_slots']} track slots, {len(preprocessing['feature_names'])} features)"
+    )
+    print(f"Final validation accuracy: {history.val_accuracy[-1]:.3f}")
+
+
+def _cmd_evaluate(args: argparse.Namespace) -> None:
+    model, preprocessing = load_checkpoint(args.model, device=args.device)
+    tracks, clusters = read_reco_run(args.reco_dir, args.format)
+    result = evaluate_model(model, preprocessing, tracks, clusters)
+
+    print(f"Evaluated on {len(result['dataset'].is_b_jet)} jet(s) from {args.reco_dir}")
+    print(f"  accuracy: {result['accuracy']:.3f}")
+    print(f"  AUC:      {result['roc_auc']:.3f}")
+    print("  confusion matrix (rows=true [light, b-jet], cols=predicted):")
+    print(result["confusion_matrix"])
+
+    if args.save_dir:
+        from viz_style import PRESENT, PRINT
+
+        theme = PRESENT if args.style == "present" else PRINT
+        save_dir = Path(args.save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        plot_roc(result["fpr"], result["tpr"], result["roc_auc"], save_path=save_dir / "roc.png", theme=theme)
+        plot_confusion_matrix(result["confusion_matrix"], save_path=save_dir / "confusion_matrix.png", theme=theme)
+        plot_score_distribution(
+            result["score"], result["dataset"].is_b_jet, save_path=save_dir / "score.png", theme=theme
+        )
+        print(f"Saved plots to {save_dir}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="flavor_tagging", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -114,6 +173,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="print (default): full titles/axes/labels. present: no title -- for a slide.",
     )
     val_p.set_defaults(func=_cmd_validate)
+
+    train_p = subparsers.add_parser("train", help="Train the b-tagger MLP on a reconstructed run")
+    train_p.add_argument("--reco-dir", default="out/reco_train", help="Directory previously written by `reconstruct`")
+    train_p.add_argument("--format", choices=["csv", "arrow"], default="arrow", help="Format of --reco-dir")
+    train_p.add_argument("--epochs", type=int, default=50)
+    train_p.add_argument("--batch-size", type=int, default=64)
+    train_p.add_argument("--val-fraction", type=float, default=0.15, help="Held out for in-training validation")
+    train_p.add_argument("--lr", type=float, default=1e-3)
+    train_p.add_argument("--device", default="auto", choices=["auto", "cpu", "mps"])
+    train_p.add_argument("--seed", type=int, default=0)
+    train_p.add_argument("--output", default="model.pt", help="Path to write the trained checkpoint to")
+    train_p.set_defaults(func=_cmd_train)
+
+    eval_p = subparsers.add_parser(
+        "evaluate", help="Evaluate a trained b-tagger on an independent reconstructed run (ROC, confusion matrix)"
+    )
+    eval_p.add_argument("--model", required=True, help="Path to a checkpoint written by `train`")
+    eval_p.add_argument(
+        "--reco-dir", default="out/reco_test", help="Independent reconstructed run -- NOT the one used for `train`"
+    )
+    eval_p.add_argument("--format", choices=["csv", "arrow"], default="arrow", help="Format of --reco-dir")
+    eval_p.add_argument("--device", default="auto", choices=["auto", "cpu", "mps"])
+    eval_p.add_argument("--save-dir", default=None, help="Directory to save ROC/confusion-matrix/score plots into")
+    eval_p.add_argument(
+        "--style",
+        choices=["print", "present"],
+        default="print",
+        help="print (default): full titles. present: no title -- for a slide. Only affects --save-dir plots.",
+    )
+    eval_p.set_defaults(func=_cmd_evaluate)
 
     return parser
 
