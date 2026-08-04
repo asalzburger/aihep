@@ -1,0 +1,11 @@
+# Track/cluster resolution tuned to configs/jets_bjets.yaml's pt range
+# (50-300): sigma = a + b / x, see detectorreco2d.reconstruct.resolution.
+track_resolution:
+  d0: { a: 0.05, b: 3.0 } # length units, same as the tracker layout (r = 29..200)
+  phi0: { a: 0.0005, b: 0.01 } # radians
+  pt: { a: 0.5, b: 5.0 }
+
+cluster_resolution:
+  energy: { a: 3.0, b: 40.0 }
+
+seed: 123

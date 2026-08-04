@@ -290,6 +290,143 @@ def test_jets_mode_b_jet_decay_length_stays_within_configured_bounds():
     assert all(10.0 - 1e-9 <= d <= 90.0 + 1e-9 for d in distances)
 
 
+def test_jets_mode_particles_carry_jet_id_and_is_b_jet_truth():
+    config = SimConfig(
+        gun=ParticleGunConfig(n_particles=100, mode="jets", jet_count_min=3, jet_count_max=3, b_jet_fraction=0.5)
+    )
+    rows = sample_particles(np.random.default_rng(4), config, event_id=0)
+    assert all(row["jet_id"] in (0, 1, 2) for row in rows)
+    # every row on the same jet_id agrees on is_b_jet -- it's an axis property
+    by_jet = {}
+    for row in rows:
+        by_jet.setdefault(row["jet_id"], set()).add(row["is_b_jet"])
+    assert all(len(flags) == 1 for flags in by_jet.values())
+
+
+def test_standard_and_anomaly_modes_tag_particles_as_not_belonging_to_a_jet():
+    standard = sample_particles(
+        np.random.default_rng(0), SimConfig(gun=ParticleGunConfig(n_particles=5, mode="standard")), event_id=0
+    )
+    assert all(row["jet_id"] == -1 and row["is_b_jet"] is False for row in standard)
+
+    anomaly = sample_particles(
+        np.random.default_rng(0),
+        SimConfig(gun=ParticleGunConfig(n_particles=3, mode="anomaly", anomaly_rate=1.0)),
+        event_id=0,
+    )
+    assert len(anomaly) > 3  # the injected cluster landed
+    assert all(row["jet_id"] == -1 and row["is_b_jet"] is False for row in anomaly)
+
+
+def test_jets_mode_new_b_jet_knobs_default_to_off_and_preserve_multiplicity():
+    # b_jet_track_boost/pt_boost/muon fractions all default to 0.0, so even
+    # with every jet forced to be a b-jet, the total particle count and pt
+    # range stay exactly what they were before these knobs existed.
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=40,
+            mode="jets",
+            jet_count_min=2,
+            jet_count_max=2,
+            b_jet_fraction=1.0,
+            pt_min=5.0,
+            pt_max=5.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(7), config, event_id=0)
+    assert len(rows) == 40
+    assert all(row["energy"] == pytest.approx(5.0) for row in rows)
+    assert all(row["species"] != "mu-" and row["species"] != "mu+" for row in rows)
+
+
+def test_jets_mode_b_jet_track_boost_adds_extra_particles_only_to_b_jets():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=20,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            b_jet_fraction=1.0,
+            b_jet_track_boost=0.5,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(1), config, event_id=0)
+    # 20 baseline on the one (b-)jet axis, +50% = 10 extra -> 30 total
+    assert len(rows) == 30
+    assert all(row["is_b_jet"] for row in rows)
+
+
+def test_jets_mode_b_jet_track_boost_leaves_light_jets_untouched():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=20,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            b_jet_fraction=0.0,
+            b_jet_track_boost=0.5,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(1), config, event_id=0)
+    assert len(rows) == 20
+
+
+def test_jets_mode_b_jet_pt_boost_scales_pt_for_b_jet_particles_only():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=10,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            b_jet_fraction=1.0,
+            b_jet_pt_boost=0.2,
+            pt_min=10.0,
+            pt_max=10.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(2), config, event_id=0)
+    assert all(row["energy"] == pytest.approx(12.0) for row in rows)
+
+
+def test_jets_mode_injects_a_muon_when_fraction_is_one():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=5,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            b_jet_fraction=0.0,
+            jet_muon_fraction=1.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(9), config, event_id=0)
+    assert len(rows) == 6  # the 5 standard particles + one injected muon
+    muon_rows = [row for row in rows if row["species"] in ("mu-", "mu+")]
+    assert len(muon_rows) == 1
+    assert muon_rows[0]["is_b_jet"] is False
+
+
+def test_jets_mode_b_jet_muon_fraction_is_independent_of_light_jet_fraction():
+    # every jet is a b-jet, b-jet muon fraction is 1.0, light-jet fraction is
+    # 0.0 -- since there are no light jets here this just pins the b-jet path
+    # deterministically: exactly one injected muon per jet axis.
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=30,
+            mode="jets",
+            jet_count_min=3,
+            jet_count_max=3,
+            b_jet_fraction=1.0,
+            jet_muon_fraction=0.0,
+            b_jet_muon_fraction=1.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(13), config, event_id=0)
+    muon_rows = [row for row in rows if row["species"] in ("mu-", "mu+")]
+    assert len(muon_rows) == 3
+    assert all(row["is_b_jet"] for row in muon_rows)
+
+
 def test_anomaly_mode_never_injects_when_rate_is_zero():
     config = SimConfig(gun=ParticleGunConfig(n_particles=3, mode="anomaly", anomaly_rate=0.0))
     rows = sample_particles(np.random.default_rng(2), config, event_id=0)

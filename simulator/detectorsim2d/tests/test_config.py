@@ -161,6 +161,24 @@ def test_load_jets_yaml_sets_b_jet_parameters():
     assert config.gun.b_jet_decay_length_max == pytest.approx(90.0)
 
 
+def test_gun_b_jet_track_pt_and_muon_knobs_default_to_off():
+    gun = ParticleGunConfig()
+    assert gun.b_jet_track_boost == 0.0
+    assert gun.b_jet_pt_boost == 0.0
+    assert gun.jet_muon_fraction == 0.0
+    assert gun.b_jet_muon_fraction == 0.0
+
+
+def test_gun_b_jet_track_pt_and_muon_knobs_are_settable():
+    gun = ParticleGunConfig(
+        b_jet_track_boost=0.2, b_jet_pt_boost=0.15, jet_muon_fraction=0.02, b_jet_muon_fraction=0.15
+    )
+    assert gun.b_jet_track_boost == pytest.approx(0.2)
+    assert gun.b_jet_pt_boost == pytest.approx(0.15)
+    assert gun.jet_muon_fraction == pytest.approx(0.02)
+    assert gun.b_jet_muon_fraction == pytest.approx(0.15)
+
+
 def test_load_anomaly_yaml_sets_anomaly_mode_and_anomaly_parameters():
     config = load_config(ANOMALY_CONFIG_PATH)
     assert config.gun.mode == "anomaly"

@@ -104,3 +104,25 @@ class Trajectory:
         if self.is_straight:
             return self.phi0
         return self.phi0 + s / self.radius
+
+    @property
+    def d0(self) -> float:
+        """Signed transverse impact parameter: the trajectory's closest
+        (signed) distance to the origin -- the usual tracking-detector
+        "impact parameter" observable, and what a displaced (b-jet-like)
+        vertex shows up as.
+
+        For a straight trajectory this is the perpendicular distance from
+        the origin to the line through ``(x0, y0)`` along ``phi0``: positive
+        if the origin is to the trajectory's left (in its direction of
+        travel), negative if to its right. A circular arc's value --
+        ``sign(radius) * (|radius| - |center distance to origin|)`` -- is
+        defined so it agrees with the straight-line formula in the
+        ``radius -> +-inf`` limit, i.e. it is continuous across
+        ``is_straight``.
+        """
+        if self.is_straight:
+            return self.x0 * math.sin(self.phi0) - self.y0 * math.cos(self.phi0)
+        cx, cy = self.center
+        sign = math.copysign(1.0, self.radius)
+        return sign * (abs(self.radius) - math.hypot(cx, cy))

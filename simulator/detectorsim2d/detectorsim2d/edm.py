@@ -28,6 +28,8 @@ PARTICLES_COLUMNS = [
     "charge",
     "energy",
     "radius",
+    "jet_id",
+    "is_b_jet",
 ]
 """`species`/`pdg` name the particle (see detectorsim2d.species); both may be
 absent/NaN for a hand-built table that only knows kinematics, in which case
@@ -42,6 +44,14 @@ detector2d.geometry.Trajectory and detectorsim2d.simulate.trajectory_for_row. It
 is the radius in the *innermost* field region; with a piecewise field the
 particle's actual radius changes region by region (see
 detector2d.propagate)."""
+
+"""`jet_id`/`is_b_jet` are ground truth from `gun.mode == "jets"`: which jet
+axis (0-based, unique within the event) a particle was assigned to, and
+whether that axis was sampled as a "b-jet" (see
+`ParticleGunConfig.b_jet_fraction`). `jet_id` is -1 and `is_b_jet` is `False`
+for every other gun mode, and for a hand-built table that predates jets
+(pandas reads a missing value back as NaN, not -1/False, on a CSV round
+trip -- callers that care should treat NaN the same as "no jet")."""
 
 HITS_COLUMNS = [
     "event_id",

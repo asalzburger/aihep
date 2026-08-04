@@ -100,6 +100,25 @@ class ParticleGunConfig:
     #: volume" rather than past it.
     b_jet_decay_length_min: float = 0.0
     b_jet_decay_length_max: float = 20.0
+    #: `jets` mode, b-jets only: extra particles added to a b-jet axis on top
+    #: of whatever it was assigned by the normal per-particle draw, as a
+    #: fraction of that count (e.g. 0.2 -> 20% more). ``0.0`` (default) adds
+    #: nothing, so a plain ``jets`` config's total particle count is exactly
+    #: `n_particles` as before -- this is purely additive and opt-in.
+    b_jet_track_boost: float = 0.0
+    #: `jets` mode, b-jets only: fractional pt boost applied to every
+    #: particle on a b-jet axis (including its extra `b_jet_track_boost`
+    #: tracks and its injected muon, if any) -- ``pt *= 1 + b_jet_pt_boost``.
+    #: ``0.0`` (default) leaves pt untouched.
+    b_jet_pt_boost: float = 0.0
+    #: `jets` mode: probability that a non-b-jet axis additionally gets one
+    #: injected muon (mu+/mu- drawn 50/50, pt from the same `pt_min`/`pt_max`
+    #: range as everything else). ``0.0`` (default) never injects one.
+    jet_muon_fraction: float = 0.0
+    #: `jets` mode, b-jets only: same as `jet_muon_fraction` but for a b-jet
+    #: axis -- normally set higher, since a semileptonic B decay is the
+    #: physical reason a b-jet contains a muon more often than a light jet.
+    b_jet_muon_fraction: float = 0.0
 
     #: `anomaly` mode: probability, per event, that the anomalous cluster is
     #: injected on top of the standard particles.

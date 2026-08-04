@@ -218,13 +218,16 @@ def _sample_particle(
     k: float,
     phi0: float | None = None,
     vertex: tuple[float, float] | None = None,
+    pt_scale: float = 1.0,
 ) -> dict:
     """One particle: vertex and pt from `gun`, species drawn from
     `gun.species` (or a bare charged stub if empty), and `phi0` -- drawn
     uniformly from `gun.phi_min`/`phi_max` if not given explicitly (the
     `jets`-mode caller passes one instead, clustered around a jet axis).
     `vertex`, if given, overrides `gun.vertex_x`/`gun.vertex_y` outright (the
-    `jets`-mode caller passes a b-jet's displaced decay point instead)."""
+    `jets`-mode caller passes a b-jet's displaced decay point instead).
+    `pt_scale` multiplies the sampled pt outright (default 1.0, a no-op) --
+    the `jets`-mode caller passes `1 + b_jet_pt_boost` for a b-jet axis."""
     if vertex is not None:
         x0, y0 = vertex
     else:
@@ -232,7 +235,7 @@ def _sample_particle(
         y0 = gun.vertex_y + (rng.uniform(-gun.vertex_spread_y, gun.vertex_spread_y) if gun.vertex_spread_y else 0.0)
     if phi0 is None:
         phi0 = rng.uniform(gun.phi_min, gun.phi_max)
-    pt = rng.uniform(gun.pt_min, gun.pt_max)
+    pt = rng.uniform(gun.pt_min, gun.pt_max) * pt_scale
 
     if gun.species:
         name = str(rng.choice(gun.species, p=gun.species_probabilities))
@@ -248,6 +251,36 @@ def _sample_particle(
     radius = signed_radius(pt, charge, field_bz, k)
     return dict(
         species=name, pdg=pdg, x0=x0, y0=y0, phi0=phi0, charge=charge, energy=pt, radius=radius
+    )
+
+
+def _sample_muon(
+    rng: np.random.Generator,
+    gun: ParticleGunConfig,
+    field_bz: float,
+    k: float,
+    phi0: float,
+    vertex: tuple[float, float],
+    pt_scale: float = 1.0,
+) -> dict:
+    """One muon (mu-/mu+, drawn 50/50), pt from the same `pt_min`/`pt_max`
+    range as everything else -- an injected particle for
+    `ParticleGunConfig.jet_muon_fraction`/`b_jet_muon_fraction`, independent
+    of `gun.species` (which need not include muons at all for the rest of a
+    jet's particles)."""
+    species = species_module.get("mu-" if rng.random() < 0.5 else "mu+")
+    pt = rng.uniform(gun.pt_min, gun.pt_max) * pt_scale
+    radius = signed_radius(pt, species.charge, field_bz, k)
+    x0, y0 = vertex
+    return dict(
+        species=species.name,
+        pdg=species.pdg,
+        x0=x0,
+        y0=y0,
+        phi0=phi0,
+        charge=species.charge,
+        energy=pt,
+        radius=radius,
     )
 
 
@@ -322,25 +355,76 @@ def sample_particles(rng: np.random.Generator, config: SimConfig, event_id: int)
     if gun.mode == "jets":
         axes = _jet_axes(rng, gun)
         rows = []
+        axis_counts = [0] * len(axes)
         for particle_id in range(gun.n_particles):
-            axis = axes[int(rng.integers(0, len(axes)))]
+            axis_index = int(rng.integers(0, len(axes)))
+            axis = axes[axis_index]
+            axis_counts[axis_index] += 1
             phi0 = axis["phi"] + rng.normal(0.0, gun.jet_cone_sigma)
+            pt_scale = 1.0 + gun.b_jet_pt_boost if axis["is_b_jet"] else 1.0
             rows.append(
                 dict(
                     event_id=event_id,
                     particle_id=particle_id,
-                    **_sample_particle(rng, gun, bz, k, phi0, vertex=axis["vertex"]),
+                    jet_id=axis_index,
+                    is_b_jet=axis["is_b_jet"],
+                    **_sample_particle(rng, gun, bz, k, phi0, vertex=axis["vertex"], pt_scale=pt_scale),
                 )
             )
+
+        # b-jet-only extras, both opt-in via config and 0 by default so a
+        # plain jets config's particle count/content is untouched: extra
+        # tracks (a fraction of that axis's own count above, rounded) and an
+        # occasional injected muon (more likely for a b-jet than a light
+        # jet, standing in for a semileptonic B decay).
+        next_id = len(rows)
+        for axis_index, axis in enumerate(axes):
+            pt_scale = 1.0 + gun.b_jet_pt_boost if axis["is_b_jet"] else 1.0
+
+            if axis["is_b_jet"] and gun.b_jet_track_boost > 0.0:
+                n_extra = round(axis_counts[axis_index] * gun.b_jet_track_boost)
+                for _ in range(n_extra):
+                    phi0 = axis["phi"] + rng.normal(0.0, gun.jet_cone_sigma)
+                    rows.append(
+                        dict(
+                            event_id=event_id,
+                            particle_id=next_id,
+                            jet_id=axis_index,
+                            is_b_jet=True,
+                            **_sample_particle(rng, gun, bz, k, phi0, vertex=axis["vertex"], pt_scale=pt_scale),
+                        )
+                    )
+                    next_id += 1
+
+            muon_fraction = gun.b_jet_muon_fraction if axis["is_b_jet"] else gun.jet_muon_fraction
+            if muon_fraction > 0.0 and rng.random() < muon_fraction:
+                phi0 = axis["phi"] + rng.normal(0.0, gun.jet_cone_sigma)
+                rows.append(
+                    dict(
+                        event_id=event_id,
+                        particle_id=next_id,
+                        jet_id=axis_index,
+                        is_b_jet=axis["is_b_jet"],
+                        **_sample_muon(rng, gun, bz, k, phi0, axis["vertex"], pt_scale=pt_scale),
+                    )
+                )
+                next_id += 1
     else:
         rows = [
-            dict(event_id=event_id, particle_id=particle_id, **_sample_particle(rng, gun, bz, k))
+            dict(
+                event_id=event_id,
+                particle_id=particle_id,
+                jet_id=-1,
+                is_b_jet=False,
+                **_sample_particle(rng, gun, bz, k),
+            )
             for particle_id in range(gun.n_particles)
         ]
 
     if gun.mode == "anomaly" and rng.random() < gun.anomaly_rate:
         rows.extend(
-            dict(event_id=event_id, **row) for row in _anomaly_particles(rng, gun, bz, k, len(rows))
+            dict(event_id=event_id, jet_id=-1, is_b_jet=False, **row)
+            for row in _anomaly_particles(rng, gun, bz, k, len(rows))
         )
 
     return rows

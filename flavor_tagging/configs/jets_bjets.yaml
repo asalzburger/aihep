@@ -1,0 +1,99 @@
+# The full detector (see simulator/detectorsim2d/configs/jets.yaml, whose
+# detector/calorimeter/muon/field/response blocks this reuses verbatim) with
+# the gun's b-jet knobs turned on: a b-jet gets ~20% more tracks, slightly
+# higher pt, and is much more likely to contain a muon than a light jet
+# (15% vs 2%) -- the observables a flavor tagger would actually use.
+
+# --- tracker: 6 barrel layers, r = 29 .. 200 ---------------------------------
+detector:
+  mode: detailed
+  layers:
+    - {layer_id: 0, radius: 29.0,  kind: precision}
+    - {layer_id: 1, radius: 48.0,  kind: precision}
+    - {layer_id: 2, radius: 68.0,  kind: precision}
+    - {layer_id: 3, radius: 100.0, kind: outer}
+    - {layer_id: 4, radius: 140.0, kind: outer}
+    - {layer_id: 5, radius: 200.0, kind: outer}
+  module_types:
+    precision: {half_length: 4.0, tilt_deg: 10.0, overlap_fraction: 0.15, pitch: 0.1}
+    outer:     {half_length: 8.0, tilt_deg: 8.0,  overlap_fraction: 0.10, pitch: 0.5}
+
+# --- calorimeters ------------------------------------------------------------
+calorimeter:
+  ecal:
+    layer_id_base: 100
+    r_inner: 210.0
+    n_layers: 3
+    thickness: 30.0
+    n_phi: 256
+    phi_stagger: [0.0, 0.5, 0.0]
+  hcal:
+    layer_id_base: 200
+    r_inner: 300.0
+    n_layers: 2
+    thickness: 80.0
+    n_phi: 64
+
+# --- muon system: 3 octagonal triplet stations -------------------------------
+muon:
+  layer_id_base: 300
+  apothem_inner: 520.0
+  station_spacing: 100.0
+  n_stations: 3
+  n_planes: 3
+  n_sides: 8
+  triplet_gap: 8.0
+  pitch: 2.0
+
+# --- field -------------------------------------------------------------------
+field:
+  k: 0.2998
+  regions:
+    - {r_max: 210.0, bz:  2.0}   # tracker
+    - {r_max: 480.0, bz:  0.0}   # ECAL + HCAL
+    - {bz: -1.0}                 # muon system (reflux)
+
+# --- calorimeter response ----------------------------------------------------
+response:
+  em:     {layer_fractions: [0.60, 0.28, 0.12], sigma_cells: 1.5, sigma_growth: 0.5}
+  hadron: {layer_fractions: [0.65, 0.35],       sigma_cells: 1.0, sigma_growth: 0.4}
+  mip_energy: {ecal: 0.3, hcal: 0.8}
+  stochastic: {ecal: 0.10, hcal: 0.50}
+
+# --- gun ---------------------------------------------------------------------
+gun:
+  mode: jets
+  jet_count_min: 2
+  jet_count_max: 4
+  jet_cone_sigma: 0.1
+
+  # 15% of jets are b-jets: displaced vertex 10-90 units along the jet axis
+  # (see simulator/detectorsim2d/configs/jets.yaml for the same choice).
+  b_jet_fraction: 0.15
+  b_jet_decay_length_min: 10.0
+  b_jet_decay_length_max: 90.0
+
+  # The three flavor-discriminating knobs this example is actually about
+  # (all default to 0.0/off in detectorsim2d itself -- see
+  # ParticleGunConfig.b_jet_track_boost/b_jet_pt_boost/jet_muon_fraction/
+  # b_jet_muon_fraction):
+  b_jet_track_boost: 0.2     # a b-jet gets ~20% more tracks than it otherwise would
+  b_jet_pt_boost: 0.15       # ... and its particles run ~15% harder
+  jet_muon_fraction: 0.02    # a light jet rarely contains a muon
+  b_jet_muon_fraction: 0.15  # a b-jet contains one far more often (semileptonic B decay)
+
+  n_particles: 50
+  vertex_x: 0.0
+  vertex_y: 0.0
+  vertex_spread_x: 0.0
+  vertex_spread_y: 0.0
+  phi_min: -3.14159
+  phi_max: 3.14159
+  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron]
+  pt_min: 50.0
+  pt_max: 300.0
+
+n_events: 300
+seed: null
+world_radius: 800.0
+max_path_length: 4000.0
