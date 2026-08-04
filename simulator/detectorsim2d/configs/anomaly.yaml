@@ -95,15 +95,15 @@ gun:
   anomaly_calo_scale: 2.0     # calo shower energy = pt_max * this
   anomaly_muon_scale: 1.5     # muon energy = pt_max * this
   anomaly_axis_jitter: 0.0    # 0.0 = exactly lined up back-to-back
-  n_particles: 8
+  n_particles: 2
   vertex_x: 0.0
   vertex_y: 0.0
   vertex_spread_x: 0.0
   vertex_spread_y: 0.0
   phi_min: -3.14159
   phi_max: 3.14159
-  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron, "mu+", "mu-"]
-  pt_min: 20.0
+  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron ]
+  pt_min: 80.0
   pt_max: 300.0
 
 # n_events > 1 recommended, so a run has a decent chance of containing an

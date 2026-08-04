@@ -144,7 +144,21 @@ def test_load_jets_yaml_sets_jets_mode_and_jet_parameters():
     assert config.gun.jet_count_min == 2
     assert config.gun.jet_count_max == 4
     assert config.gun.jet_cone_sigma == pytest.approx(0.1)
-    assert config.gun.n_particles == 24
+    assert config.gun.n_particles == 50
+
+
+def test_gun_b_jet_parameters_default_to_a_15_percent_displaced_fraction():
+    gun = ParticleGunConfig()
+    assert gun.b_jet_fraction == pytest.approx(0.15)
+    assert gun.b_jet_decay_length_min == 0.0
+    assert gun.b_jet_decay_length_max == pytest.approx(20.0)
+
+
+def test_load_jets_yaml_sets_b_jet_parameters():
+    config = load_config(JETS_CONFIG_PATH)
+    assert config.gun.b_jet_fraction == pytest.approx(0.15)
+    assert config.gun.b_jet_decay_length_min == pytest.approx(10.0)
+    assert config.gun.b_jet_decay_length_max == pytest.approx(90.0)
 
 
 def test_load_anomaly_yaml_sets_anomaly_mode_and_anomaly_parameters():

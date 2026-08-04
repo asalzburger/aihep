@@ -93,15 +93,22 @@ gun:
   jet_count_min: 2
   jet_count_max: 4
   jet_cone_sigma: 0.1
-  n_particles: 24
+  # 15% of jets are "b-jets": their particles share a vertex displaced 10-90
+  # units along the jet axis (well inside the 200-unit tracker, past the
+  # first 1-2 barrel layers at r=29/48) instead of starting at the origin --
+  # standing in for an invisible parent (e.g. a B hadron) decaying in flight.
+  b_jet_fraction: 0.15
+  b_jet_decay_length_min: 10.0
+  b_jet_decay_length_max: 90.0
+  n_particles: 50
   vertex_x: 0.0
   vertex_y: 0.0
   vertex_spread_x: 0.0
   vertex_spread_y: 0.0
   phi_min: -3.14159
   phi_max: 3.14159
-  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron, "mu+", "mu-"]
-  pt_min: 20.0
+  species: [electron, positron, photon, pi0, "pi+", "pi-", neutron]
+  pt_min: 50.0
   pt_max: 300.0
 
 n_events: 1

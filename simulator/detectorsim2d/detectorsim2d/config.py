@@ -85,6 +85,21 @@ class ParticleGunConfig:
     #: `jets` mode: angular (phi) spread of a jet's particles about its axis,
     #: in radians -- the jet "cone" width.
     jet_cone_sigma: float = 0.15
+    #: `jets` mode: fraction of jets, per event, that are "b-jets" -- instead
+    #: of starting at the primary vertex (`vertex_x`/`vertex_y`), the jet's
+    #: particles all originate from a shared point displaced along the jet's
+    #: own axis, standing in for an invisible parent (e.g. a B hadron) that
+    #: flies some distance through the tracker before decaying into the
+    #: visible jet. The rest of a b-jet's particles (species, pt, cone
+    #: spread) are sampled exactly like any other jet's.
+    b_jet_fraction: float = 0.15
+    #: `jets` mode, b-jets only: the displaced vertex's flight length along
+    #: the jet axis is drawn uniformly from [`b_jet_decay_length_min`,
+    #: `b_jet_decay_length_max`] -- tune these relative to the detector's own
+    #: tracker radius so the decay point lands "somewhere in the tracker
+    #: volume" rather than past it.
+    b_jet_decay_length_min: float = 0.0
+    b_jet_decay_length_max: float = 20.0
 
     #: `anomaly` mode: probability, per event, that the anomalous cluster is
     #: injected on top of the standard particles.

@@ -233,6 +233,63 @@ def test_jets_mode_particles_stay_tight_around_their_jet_axis():
     assert phis.std() < 0.2  # << the 6-radian phi_min/phi_max span
 
 
+def test_jets_mode_b_jets_are_displaced_along_their_axis():
+    # a single jet, forced to always be a b-jet, with a fixed decay length --
+    # every particle's vertex should land exactly `decay_length` away from
+    # the (default, origin) primary vertex, regardless of its own phi0
+    # cone-smear (the vertex is set by the jet axis, not by each particle).
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=50,
+            mode="jets",
+            jet_count_min=1,
+            jet_count_max=1,
+            jet_cone_sigma=0.05,
+            b_jet_fraction=1.0,
+            b_jet_decay_length_min=50.0,
+            b_jet_decay_length_max=50.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(5), config, event_id=0)
+    assert len(rows) == 50
+    for row in rows:
+        assert math.hypot(row["x0"], row["y0"]) == pytest.approx(50.0)
+
+
+def test_jets_mode_b_jet_fraction_zero_keeps_every_jet_at_the_primary_vertex():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=50,
+            mode="jets",
+            jet_count_min=3,
+            jet_count_max=3,
+            b_jet_fraction=0.0,
+            vertex_x=1.0,
+            vertex_y=-2.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(6), config, event_id=0)
+    assert all(row["x0"] == pytest.approx(1.0) and row["y0"] == pytest.approx(-2.0) for row in rows)
+
+
+def test_jets_mode_b_jet_decay_length_stays_within_configured_bounds():
+    config = SimConfig(
+        gun=ParticleGunConfig(
+            n_particles=300,
+            mode="jets",
+            jet_count_min=4,
+            jet_count_max=4,
+            jet_cone_sigma=0.01,
+            b_jet_fraction=1.0,
+            b_jet_decay_length_min=10.0,
+            b_jet_decay_length_max=90.0,
+        )
+    )
+    rows = sample_particles(np.random.default_rng(11), config, event_id=0)
+    distances = [math.hypot(row["x0"], row["y0"]) for row in rows]
+    assert all(10.0 - 1e-9 <= d <= 90.0 + 1e-9 for d in distances)
+
+
 def test_anomaly_mode_never_injects_when_rate_is_zero():
     config = SimConfig(gun=ParticleGunConfig(n_particles=3, mode="anomaly", anomaly_rate=0.0))
     rows = sample_particles(np.random.default_rng(2), config, event_id=0)
